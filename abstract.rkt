@@ -218,8 +218,8 @@
   (let ((res
          (for/first ([l looks]
                      [c cnsqs]
-                     #:when (eq? (first c) i))
-           (if l l (set)))))
+                     #:when (eq? (pda-term-insn (first c)) i))
+           (if l (set l) (set)))))
     (unless res
       (error 'matching-lookahead
              "no csnqs match ~v in ~v"
