@@ -176,7 +176,7 @@
              "not supported; all arguments after the first will be ignored"))
      (if (or (empty? out-vars) (false? (first out-vars)))
          re
-         (env-set (first out-vars) (sem-act-val name in-vars))))
+         (env-set re (first out-vars) (sem-act-val name in-vars))))
     ((re (assign var (pop)) _ st _ _)
      (env-set re var st))
     ((re (assign var prhs) _ _ eval-prhs _)
