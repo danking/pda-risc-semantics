@@ -151,7 +151,7 @@
         (set bottom)))
    ((tr (drop-token _) _ _) (set bottom))
    ((tr (token-case _ looks cnsqs) i^ _)
-    (when (not (unknown-input? (for/first ((tr tr)) tr)))
+    (when (not (for/or ((t tr)) (unknown-input? t)))
       (warn 'step-token-reg
             "tried to token-case when tr wasn't unknown-input, was: ~a; all "
             "uses of the token register should be preceeded by a `(get-token)'"
