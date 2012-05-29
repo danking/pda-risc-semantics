@@ -119,9 +119,9 @@
 ;; step-input : AInStream GInsn GInsn -> AInStream
 (define step-input
   (match-lambda**
-    ((_ (drop-token) _)
+    ((_ (drop-token _) _)
      unknown-input)
-    ((_ (if-eos cnsq altr) t^)
+    ((_ (if-eos _ cnsq altr) t^)
      (if (eq? t^ cnsq)
          empty-input
          non-empty-input))
@@ -130,16 +130,17 @@
 ;; step-stack : AStack GInsn (Pure-Rhs -> AValue) -> AStack
 (define step-stack
   (match-lambda**
-    ((_ (push prhs) eval-prhs) (eval-prhs prhs))
-    ((_ (assign var (pop)) _)
+    ((_ (push _ prhs) eval-prhs) (eval-prhs prhs))
+    ((_ (assign _ var (pop)) _)
      (error 'step-stack
             "found a pop node, this should have been caught earlier"))
     ((st _ _) st)))
 
 ;; step-token-reg : AValue GInsn GInsn AInStream -> AValue
+
 (define step-token-reg
   (match-lambda**
-    ((tr (get-token) _ in)
+    ((tr (get-token _) _ in)
      (when (not (non-empty-input? in))
        (warn 'step-token-reg
             "tried to get-token when the input stream was not in the "
@@ -149,8 +150,8 @@
      (if (non-empty-input? in)
          (set unknown-input)
          (set bottom)))
-    ((tr (drop-token) _ _) (set bottom))
-    ((tr (token-case looks cnsqs) i^ _)
+    ((tr (drop-token _) _ _) (set bottom))
+    ((tr (token-case _ looks cnsqs) i^ _)
      (when (not (unknown-input? (for/first ((tr tr)) tr)))
        (warn 'step-token-reg
              "tried to token-case when tr wasn't unknown-input, was: ~a; all "
@@ -169,19 +170,19 @@
 ;;                ARegisterEnv
 (define step-reg-env
   (match-lambda**
-    ((re (sem-act name in-vars out-vars action) _ _ _ _)
+    ((re (sem-act _ name in-vars out-vars action) _ _ _ _)
      (when (not (= (length out-vars) 1))
        (warn 'step-reg-env
              "currently, sem-acts with anything but exactly one argument are "
              "not supported; all arguments after the first will be ignored"))
      (if (or (empty? out-vars) (false? (first out-vars)))
          re
-         (env-set re (first out-vars) (sem-act-val name in-vars))))
-    ((re (assign var (pop)) _ st _ _)
+         (env-set re (first out-vars) (set (sem-act-val name in-vars)))))
+    ((re (assign _ var (pop)) _ st _ _)
      (env-set re var st))
-    ((re (assign var prhs) _ _ eval-prhs _)
+    ((re (assign _ var prhs) _ _ eval-prhs _)
      (env-set re var (eval-prhs prhs)))
-    ((re (and i (state-case var looks cnsqs)) i^ _ _ _)
+    ((re (and i (state-case _ var looks cnsqs)) i^ _ _ _)
      (let ((l (matching-lookahead looks cnsqs i^))
            (aval (env-get re var)))
        (when (not (avalue-⊑ l aval))
@@ -192,10 +193,10 @@
                "the abstract evaluation"
                (i var aval i^ l)))
        (env-set re var (matching-lookahead looks cnsqs i^))))
-    ((re (go target args) (join-point target params) _ _ le)
+    ((re (go _ target args) (join-point _ target params) _ _ le)
      (env-set/list (env-get le target) args params))
-    ((re (and g (go target _))
-         (and j (join-point lbl _))
+    ((re (and g (go _ target _))
+         (and j (join-point _ lbl _))
          _ _ _)
      (error 'step-reg-env
             (string-append "this, ~a, go form's target label, ~a, doesn't match this "
@@ -210,7 +211,7 @@
 ;; step-lbl-env : LblClosureEnv GInsn GInsn ARegisterEnv -> LblClosureEnv
 (define step-lbl-env
   (match-lambda**
-    ((le (label ids _ _ _ _ _) _ re)
+    ((le (label _ ids _ _ _ _ _) _ re)
      (env-set/all-to le ids re))
     ((le _ _ _) le)))
 
