@@ -198,9 +198,9 @@
          (and j (join-point lbl _))
          _ _ _)
      (error 'step-reg-env
-            "this, ~a, go form's target label, ~a, doesn't match this "
-            "join-point, ~a, form's label, ~a"
-            (g target j lbl)))
+            (string-append "this, ~a, go form's target label, ~a, doesn't match this "
+                           "join-point, ~a, form's label, ~a")
+            g target j lbl))
     ((re (and g (go _ _)) i^ _ _ _)
      (error 'step-reg-env
             "this, ~a, go form is succeded by ~a instead of a join-point"
