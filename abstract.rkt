@@ -137,28 +137,27 @@
     ((st _ _) st)))
 
 ;; step-token-reg : AValue GInsn GInsn AInStream -> AValue
-
 (define step-token-reg
   (match-lambda**
-    ((tr (get-token _) _ in)
-     (when (not (non-empty-input? in))
-       (warn 'step-token-reg
+   ((tr (get-token _) _ in)
+    (when (not (non-empty-input? in))
+      (warn 'step-token-reg
             "tried to get-token when the input stream was not in the "
-             "non-empty-input state, was: ~a ; this is prevented by using the "
-             "`if-eos' form prior to a use of `(get-token)'"
-             (in)))
-     (if (non-empty-input? in)
-         (set unknown-input)
-         (set bottom)))
-    ((tr (drop-token _) _ _) (set bottom))
-    ((tr (token-case _ looks cnsqs) i^ _)
-     (when (not (unknown-input? (for/first ((tr tr)) tr)))
-       (warn 'step-token-reg
-             "tried to token-case when tr wasn't unknown-input, was: ~a; all "
-             "uses of the token register should be preceeded by a `(get-token)'"
-             (tr)))
-     (matching-lookahead looks cnsqs i^))
-    ((tr _ _ _) tr)))
+            "non-empty-input state, was: ~a ; this is prevented by using the "
+            "`if-eos' form prior to a use of `(get-token)'"
+            (in)))
+    (if (non-empty-input? in)
+        (set unknown-input)
+        (set bottom)))
+   ((tr (drop-token _) _ _) (set bottom))
+   ((tr (token-case _ looks cnsqs) i^ _)
+    (when (not (unknown-input? (for/first ((tr tr)) tr)))
+      (warn 'step-token-reg
+            "tried to token-case when tr wasn't unknown-input, was: ~a; all "
+            "uses of the token register should be preceeded by a `(get-token)'"
+            (tr)))
+    (matching-lookahead looks cnsqs i^))
+   ((tr _ _ _) tr)))
 
 ;; step-reg-env : ARegisterEnv
 ;;                GInsn
