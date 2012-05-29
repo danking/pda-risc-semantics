@@ -90,7 +90,7 @@
     ((state id) (set rhs))
     ((nterm id) (set rhs))
     ((curr-token _) tr)
-    ((register _ uid _ _) (env-get re uid))))
+    ((register _ uid _ _) (env-get re rhs))))
 
 ;; abstract-step : AState -> [SetOf AState]
 (define abstract-step
@@ -215,12 +215,13 @@
      (env-set/all-to le ids re))
     ((le _ _ _) le)))
 
+;; matching-lookahead : [ListOf State] [ListOf Term-Seq*] -> AValue
 (define (matching-lookahead looks cnsqs i)
   (let ((res
          (for/first ([l looks]
                      [c cnsqs]
                      #:when (eq? (pda-term-insn (first c)) i))
-           (if l (set l) (set)))))
+           (if l (set l) (set unknown-input)))))
     (unless res
       (error 'matching-lookahead
              "no csnqs match ~v in ~v"
