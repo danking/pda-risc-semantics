@@ -106,7 +106,8 @@
 (define abstract-step/new-stack
   (match-lambda**
     (((abstract-state (pda-term _ succs _ _ i) in st tr re le) next-stack)
-     (for/seteq ([t^ succs])
+     (for/seteq ([t^ succs]
+                 #:when (valid-succ-state? t^ i in st tr re le))
        (match-let (((pda-term _ _ _ _ i^) t^))
          (abstract-state t^
                          (step-input in i i^)
@@ -115,6 +116,28 @@
                          (step-reg-env re i i^
                                        st (curry eval-pure-rhs tr re) le)
                          (step-lbl-env le i i^ re)))))))
+
+;; valid-succ-state? : AState
+;;                     GInsn
+;;                     AInStrem
+;;                     AStack
+;;                     AValue
+;;                     ARegisterEnv
+;;                     LblClosureEnv
+;;                     ->
+;;                     Boolean
+(define (valid-succ-state? t^ i in st tr re le)
+  (match-define (pda-term _ _ _ _ i^) t^)
+  (match* (i tr in re)
+    (((token-case _ looks cnsqs) tr _ _)
+     (for/or ((tr tr)) (unknown-input? tr)))
+    (((get-token _) _ in _)
+     (non-empty-input? in))
+    (((state-case _ var looks cnsqs) _ _ re)
+     (let ((l (matching-lookahead looks cnsqs i^))
+           (aval (env-get re var)))
+       (avalue-⊑ l aval)))
+    ((_ _ _ _) #t)))
 
 ;; step-input : AInStream GInsn GInsn -> AInStream
 (define step-input
