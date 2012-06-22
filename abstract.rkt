@@ -18,6 +18,13 @@
          abstract-state-re
          abstract-state-le)
 
+(define (write-abstract-state t port mode)
+  (write (list 'astate
+               (abstract-state-node t)
+               (abstract-state-st t)
+               (abstract-state-tr t)
+               (abstract-state-re t))
+         port))
 ;; An AState is a
 ;;  (abstract-state [U Term Term*]
 ;;                  AInStream
@@ -25,7 +32,9 @@
 ;;                  AValue
 ;;                  ARegisterEnv
 ;;                  LblClosureEnv)
-(struct abstract-state (node in st tr re le) #:transparent)
+(struct abstract-state (node in st tr re le)
+        #:transparent
+        #:property prop:custom-write write-abstract-state)
 ;; where,
 ;;   - node is the pda-term
 ;;   - in is the input straem
