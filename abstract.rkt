@@ -1,5 +1,6 @@
 #lang racket
-(require "../cfa2/cfa2.rkt"
+(require "abstract-register-environment.rkt"
+         "../cfa2/cfa2.rkt"
          "../racket-utils/singleton-struct.rkt"
          (only-in "../cfa2/utilities.rkt" bpset->fv-hash)
          (only-in "../racket-utils/similar-sets.rkt" get-basic-set)
@@ -25,6 +26,8 @@
                (abstract-state-tr t)
                (abstract-state-re t))
          port))
+;; an AValue is a [SetOf Value]
+;;
 ;; An AState is a
 ;;  (abstract-state [U Term Term*]
 ;;                  AInStream
@@ -37,7 +40,7 @@
         #:property prop:custom-write write-abstract-state)
 ;; where,
 ;;   - node is the pda-term
-;;   - in is the input straem
+;;   - in is the input stream
 ;;   - st is the stack
 ;;   - tr is the token register
 ;;   - re is the register environment (besides the token register)
@@ -51,26 +54,8 @@
                   empty-env
                   empty-env))
 
-
-;; an ARegisterEnv is a [Hash UID AValue]
-(define empty-env (hash))
-(define env-get hash-ref)
-(define env-set hash-set)
-(define (env-set/list env vars vals)
-  (for/fold ([env env])
-            ([var vars]
-             [val vals])
-    (env-set env var val)))
-(define (env-set/all-to env vars val)
-  (for/fold ([env env])
-            ([var vars])
-    (env-set env var val)))
-;; a UID is a number from the register data structure
-;;
 ;; a LblClosureEnv is a [Hash LabelName ARegisterEnv]
 
-;; an AValue is a [SetOf Value]
-;;
 ;; a Value is either:
 ;;   - StateVal
 ;;   - NTerm
