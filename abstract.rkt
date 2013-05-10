@@ -111,7 +111,7 @@
                                        st (curry eval-pure-rhs tr re) le)
                          (step-lbl-env le i i^ re)))))))
 
-;; valid-succ-state? : AState
+;; valid-succ-state? : [U Term Term*]
 ;;                     GInsn
 ;;                     AInStrem
 ;;                     AStack
