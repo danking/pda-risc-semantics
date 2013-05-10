@@ -231,7 +231,7 @@
      (env-set/all-to le ids re))
     ((le _ _ _) le)))
 
-;; matching-lookahead : [ListOf State] [ListOf Term-Seq*] -> AValue
+;; matching-lookahead : [ListOf State] [ListOf Term-Seq*] GInsn -> AValue
 (define (matching-lookahead looks cnsqs i)
   (let ((res
          (for/first ([l looks]
