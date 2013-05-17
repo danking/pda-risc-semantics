@@ -4,7 +4,7 @@
          "../racket-utils/singleton-struct.rkt"
          (only-in "../cfa2/utilities.rkt" bpset->fv-hash)
          (only-in "../racket-utils/similar-sets.rkt" get-basic-set)
-         (rename-in "../pda-to-pda-risc/risc-enhanced/data.rkt")
+         "../pda-to-pda-risc/risc-enhanced/data.rkt"
          (for-syntax racket racket/syntax))
 
 (provide abstract-step
