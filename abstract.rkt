@@ -19,12 +19,14 @@
          abstract-state-re
          abstract-state-le)
 
+(define (write-avalue av)
+  (for/set ((s av))
+    (if (syntax? s) (syntax-e s) s)))
+
 (define (write-abstract-state t port mode)
   (write (list 'astate
                (abstract-state-node t)
-               (abstract-state-st t)
-               (abstract-state-tr t)
-               (abstract-state-re t))
+               (write-avalue (abstract-state-st t)))
          port))
 ;; an AValue is a [SetOf Value]
 ;;
@@ -72,9 +74,17 @@
 (singleton-struct non-empty-input)
 (singleton-struct empty-input)
 
+(define (write-sem-act-val s port mode)
+  (write `(sem-act-val ,(syntax->datum (sem-act-val-name s))
+                       ,(map (lambda (a)
+                               (if (syntax? a) (syntax-e a) a))
+                             (sem-act-val-args s)))
+         port))
+
 ;; a SemActVal is how we represent the result of a sem-act:
 ;;   (sem-act-val [Syntax Id] [ListOf Value])
-(struct sem-act-val (name args) #:transparent)
+(struct sem-act-val (name args) #:transparent
+        #:property prop:custom-write write-sem-act-val)
 
 ;; A GInsn is [U Insn Insn*]
 
