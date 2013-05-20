@@ -1,9 +1,9 @@
 #lang racket
 
 (require "abstract.rkt"
-         "../cfa2/cfa2.rkt")
-(provide (struct-out flow-state)
-         strip-flow-BP-to-node-BP)
+         "abstract-utilities.rkt"
+         "../cfa2/bp.rkt")
+(provide (all-defined-out))
 
 ;; a FlowValue is ...
 ;; a FlowState is a (make-flow-state AState FlowValue)
