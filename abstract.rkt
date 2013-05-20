@@ -1,9 +1,6 @@
 #lang racket
 (require "abstract-register-environment.rkt"
-         "../cfa2/cfa2.rkt"
          "../racket-utils/singleton-struct.rkt"
-         (only-in "../cfa2/utilities.rkt" bpset->fv-hash)
-         (only-in "../racket-utils/similar-sets.rkt" get-basic-set)
          "../pda-to-pda-risc/risc-enhanced/data.rkt"
          (for-syntax racket racket/syntax))
 
