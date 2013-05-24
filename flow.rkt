@@ -23,21 +23,6 @@
                  (BP node1 node2))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Flow State Similarness
-
-;; flow-state-similar? : FlowState FlowState -> Boolean
-(define flow-state-similar? (match-lambda*
-                              [(list (flow-state s1 _)
-                                     (flow-state s2 _))
-                               (astate-similar? s1 s2)]))
-;; flow-state-hash-code : FlowState -> Number
-(define flow-state-hash-code (match-lambda
-                               [(flow-state as _) (astate-hash-code as)]))
-;; flow-state-equal? : FlowState FlowState -> Boolean
-(define flow-state-equal? (match-lambda*
-                            [(list (flow-state s1 _)
-                                   (flow-state s2 _))
-                             (astate-equal? s1 s2)]))
 
 (define (lift-insn/flow f)
   (compose (lift-insn/astate f) flow-state-astate))

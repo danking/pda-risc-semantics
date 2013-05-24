@@ -1,11 +1,15 @@
 #lang racket
 
+(require "../../../lattice/lattice.rkt"
+         "abstract-value-data.rkt")
 (provide env empty-env env-get env-set env-set/list env-set/all-to
-         register-env-join)
+         register-environment-bounded-lattice
+         register-environment-top
+         register-environment-top?
+         register-environment-bottom
+         register-environment-bottom?)
 (module+ test (require rackunit))
 
-;; an AValue is a [SetOf Value]
-;;
 ;; a UID is a number from the register data structure
 ;;
 ;; an ARegisterEnv is a [Hash UID AValue]
@@ -23,21 +27,13 @@
             ([var vars])
     (env-set env var val)))
 
-;; register-env-join : RegisterEnv RegisterEnv -> RegisterEnv
-(define (register-env-join re1 re2)
-  (for/fold ([new-re re1])
-      ([(k v) (in-hash re2)])
-    (hash-set new-re k (set-union v (hash-ref new-re k (set))))))
-(module+ test
-  (check-equal? (register-env-join empty-env empty-env)
-                empty-env)
-  (check-equal? (register-env-join empty-env (env 1 (set 'a)))
-                (env 1 (set 'a)))
-  (check-equal? (register-env-join (env 1 (set 'a)) empty-env)
-                (env 1 (set 'a)))
-  (check-equal? (register-env-join (env 1 (set 'a)) empty-env)
-                (env 1 (set 'a)))
-  (check-equal? (register-env-join (env 1 (set 'a)) (env 2 (set 'b)))
-                (env 1 (set 'a) 2 (set 'b)))
-  (check-equal? (register-env-join (env 1 (set 'a)) (env 1 (set 'b)))
-                (env 1 (set 'a 'b))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Register Environment Lattice
+
+(define-values
+  (register-environment-bounded-lattice
+   register-environment-top
+   register-environment-top?
+   register-environment-bottom
+   register-environment-bottom?)
+  (make-bounded-dictionary-lattice avalue-bounded-lattice))

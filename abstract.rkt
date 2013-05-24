@@ -1,87 +1,13 @@
 #lang racket
-(require "abstract-register-environment.rkt"
-         "../racket-utils/singleton-struct.rkt"
+(require "abstract-data.rkt"
          "../pda-to-pda-risc/risc-enhanced/data.rkt"
          (for-syntax racket racket/syntax))
 
 (provide abstract-step
          abstract-step/new-stack
          init-astate
-         abstract-state
-         abstract-state?
-         abstract-state-node
-         abstract-state-in
-         abstract-state-st
-         abstract-state-tr
-         abstract-state-re
-         abstract-state-le)
-
-(define (write-avalue av)
-  (for/set ((s av))
-    (if (syntax? s) (syntax-e s) s)))
-
-(define (write-abstract-state t port mode)
-  (write (list 'astate
-               (abstract-state-node t)
-               (write-avalue (abstract-state-st t)))
-         port))
-;; an AValue is a [SetOf Value]
-;;
-;; An AState is a
-;;  (abstract-state [U Term Term*]
-;;                  AInStream
-;;                  AValue
-;;                  AValue
-;;                  ARegisterEnv
-;;                  LblClosureEnv)
-(struct abstract-state (node in st tr re le)
-        #:transparent
-        #:property prop:custom-write write-abstract-state)
-;; where,
-;;   - node is the pda-term
-;;   - in is the input stream
-;;   - st is the stack
-;;   - tr is the token register
-;;   - re is the register environment (besides the token register)
-;;   - le is the label closure environment (all the values in scope when
-;;     the labeled codepoint was created)
-(define (init-astate node)
-  (abstract-state node
-                  unknown-input
-                  (set)
-                  (set)
-                  empty-env
-                  empty-env))
-
-;; a LblClosureEnv is a [Hash LabelName ARegisterEnv]
-
-;; a Value is either:
-;;   - StateVal
-;;   - NTerm
-;;   - SemActVal
-;;   - Token
-;;   - UnknownInput
-;;   - Bottom
-(singleton-struct bottom)
-(define avalue-⊑ subset?)
-
-;; an AInStream is [U UnknownInput NonEmptyInput EmptyInput]
-;;
-(singleton-struct unknown-input)
-(singleton-struct non-empty-input)
-(singleton-struct empty-input)
-
-(define (write-sem-act-val s port mode)
-  (write `(sem-act-val ,(syntax->datum (sem-act-val-name s))
-                       ,(map (lambda (a)
-                               (if (syntax? a) (syntax-e a) a))
-                             (sem-act-val-args s)))
-         port))
-
-;; a SemActVal is how we represent the result of a sem-act:
-;;   (sem-act-val [Syntax Id] [ListOf Value])
-(struct sem-act-val (name args) #:transparent
-        #:property prop:custom-write write-sem-act-val)
+         (struct-out abstract-state)
+         astate-bounded-lattice)
 
 ;; A GInsn is [U Insn Insn*]
 
