@@ -1,6 +1,6 @@
 #lang racket
 
-(require "../../../lattice/lattice.rkt"
+(require "../lattice/lattice.rkt"
          "abstract-value-data.rkt")
 (provide env empty-env env-get env-set env-set/list env-set/all-to
          register-environment-bounded-lattice

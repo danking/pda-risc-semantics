@@ -1,6 +1,6 @@
 #lang racket
 
-(require "../../../lattice/lattice.rkt")
+(require "../lattice/lattice.rkt")
 (provide avalue-bounded-lattice)
 
 ;; an [AValue X] is a [SetOf X]

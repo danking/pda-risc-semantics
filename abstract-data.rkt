@@ -1,6 +1,6 @@
 #lang racket
 
-(require "../../../lattice/lattice.rkt"
+(require "../lattice/lattice.rkt"
          "abstract-value-data.rkt"
          "abstract-register-environment.rkt"
          "../racket-utils/singleton-struct.rkt")
