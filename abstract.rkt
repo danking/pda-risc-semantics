@@ -7,7 +7,22 @@
          abstract-step/new-stack
          init-astate
          (struct-out abstract-state)
-         astate-bounded-lattice)
+         astate-bounded-lattice
+         astate-same-chain?
+         astate-chain-hash-code)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Chains in the Abstract State Lattice
+
+(define (astate-same-chain? as1 as2 [recur equal?])
+  (= (pda-term->uid (abstract-state-node as1))
+     (pda-term->uid (abstract-state-node as2))))
+
+(define (astate-chain-hash-code as [recur equal-hash-code])
+  (recur (pda-term->uid (abstract-state-node as))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Abstract Semantics of PDA-RISC Programs
 
 ;; A GInsn is [U Insn Insn*]
 
