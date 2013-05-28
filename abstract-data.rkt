@@ -22,10 +22,14 @@
     (if (syntax? s) (syntax-e s) s)))
 
 (define (write-abstract-state t port mode)
-  (write (list 'astate
-               (abstract-state-node t)
-               (write-avalue (abstract-state-st t)))
-         port))
+  (let ((sexp `(astate ,(abstract-state-node t)
+                       ,(write-avalue (abstract-state-st t))
+                       ,(abstract-state-re t))))
+    ((if (pretty-printing)
+         pretty-print
+         write)
+     sexp
+     port)))
 
 ;; astate-equal? : AState AState -> Boolean
 ;;
