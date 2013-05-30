@@ -1,29 +1,25 @@
 #lang racket
 
 (require "../lattice/lattice.rkt"
+         "../racket-utils/singleton-struct.rkt"
          "abstract-value-data.rkt"
-         "abstract-register-environment.rkt"
-         "../racket-utils/singleton-struct.rkt")
+         "abstract-register-environment.rkt")
 
 (provide (struct-out abstract-state)
-         init-astate
-         bottom bottom?
+         (struct-out sem-act-val)
          unknown-input unknown-input?
          non-empty-input non-empty-input?
          empty-input empty-input?
-         avalue-⊑
-         (struct-out sem-act-val)
+         init-astate
          astate-bounded-lattice
-         ;; register environment
-         (all-from-out "abstract-register-environment.rkt"))
-
-(define (write-avalue av)
-  (for/set ((s av))
-    (if (syntax? s) (syntax-e s) s)))
+         (all-from-out "abstract-register-environment.rkt")
+         (all-from-out "abstract-value-data.rkt"))
 
 (define (write-abstract-state t port mode)
   (let ((sexp `(astate ,(abstract-state-node t)
-                       ,(write-avalue (abstract-state-st t))
+                       ,(abstract-state-in t)
+                       ,(abstract-state-st t)
+                       ,(abstract-state-tr t)
                        ,(abstract-state-re t))))
     ((if (pretty-printing)
          pretty-print
@@ -44,8 +40,7 @@
           (recur in1 in2)
           (recur st1 st2)
           (recur tr1 tr2)
-          (recur re1 re2)
-          (recur st1 st2))]))
+          (recur re1 re2))]))
 (define astate-equal-hash-code
   (match-lambda*
     [(list (abstract-state term1 in1 st1 tr1 re1 le1) recur)
@@ -53,8 +48,7 @@
         (recur in1)
         (recur st1)
         (recur tr1)
-        (recur re1)
-        (recur st1))]))
+        (recur re1))]))
 (define astate-equal-secondary-hash-code
   (match-lambda*
     [(list (abstract-state term1 in1 st1 tr1 re1 le1) recur)
@@ -62,11 +56,13 @@
         (recur in1)
         (recur st1)
         (recur tr1)
-        (recur re1)
-        (recur st1))]))
+        (recur re1))]))
 
-;; an AValue is a [SetOf Value]
-;;
+;; an AInStream is [U UnknownInput NonEmptyInput EmptyInput]
+(singleton-struct unknown-input)
+(singleton-struct non-empty-input)
+(singleton-struct empty-input)
+
 ;; An AState is a
 ;;  (abstract-state [U Term Term*]
 ;;                  AInStream
@@ -92,28 +88,12 @@
 (define (init-astate node)
   (abstract-state node
                   unknown-input
-                  (set)
-                  (set)
+                  avalue-bottom
+                  avalue-bottom
                   empty-env
                   empty-env))
 
 ;; a LblClosureEnv is a [Hash LabelName ARegisterEnv]
-
-;; a Value is either:
-;;   - StateVal
-;;   - NTerm
-;;   - SemActVal
-;;   - Token
-;;   - UnknownInput
-;;   - Bottom
-(singleton-struct bottom)
-(define avalue-⊑ subset?)
-
-;; an AInStream is [U UnknownInput NonEmptyInput EmptyInput]
-;;
-(singleton-struct unknown-input)
-(singleton-struct non-empty-input)
-(singleton-struct empty-input)
 
 (define (write-sem-act-val s port mode)
   (write `(sem-act-val ,(syntax->datum (sem-act-val-name s))

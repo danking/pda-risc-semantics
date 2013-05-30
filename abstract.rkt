@@ -1,5 +1,6 @@
 #lang racket
 (require "abstract-data.rkt"
+         "../lattice/lattice.rkt"
          "../pda-to-pda-risc/risc-enhanced/data.rkt"
          (for-syntax racket racket/syntax))
 
@@ -29,8 +30,10 @@
 ;; eval-pure-rhs : AValue RegisterEnv Pure-Rhs -> AValue
 (define (eval-pure-rhs tr re rhs)
   (match rhs
-    ((state id) (set rhs))
-    ((nterm id) (set rhs))
+    ((state id)
+     (value->avalue rhs))
+    ((nterm id)
+     (value->avalue rhs))
     ((curr-token _) tr)
     ((register _ uid _ _) (env-get re rhs))))
 
@@ -72,13 +75,16 @@
   (match-define (pda-term _ _ _ _ i^) t^)
   (match* (i tr in re)
     (((token-case _ looks cnsqs) tr _ _)
-     (for/or ((tr tr)) (unknown-input? tr)))
+     (let ((l (required-lookahead looks cnsqs i^)))
+       (log-if-false ((lattice-lte? avalue-bounded-lattice) l tr)
+                     "in token-case ~a\n the look is ~a, tr is ~a"
+                     i l tr)))
     (((get-token _) _ in _)
      (non-empty-input? in))
     (((state-case _ var looks cnsqs) _ _ re)
-     (let ((l (matching-lookahead looks cnsqs i^))
+     (let ((l (required-lookahead looks cnsqs i^))
            (aval (env-get re var)))
-       (avalue-⊑ l aval)))
+       ((lattice-lte? avalue-bounded-lattice) l aval)))
     ((_ _ _ _) #t)))
 
 ;; step-input : AInStream GInsn GInsn -> AInStream
@@ -112,16 +118,17 @@
             "`if-eos' form prior to a use of `(get-token)'"
             (in)))
     (if (non-empty-input? in)
-        (set unknown-input)
-        (set bottom)))
-   ((tr (drop-token _) _ _) (set bottom))
+        avalue-top
+        avalue-bottom))
+   ((tr (drop-token _) _ _) avalue-bottom)
    ((tr (token-case _ looks cnsqs) i^ _)
-    (when (not (for/or ((t tr)) (unknown-input? t)))
+    (when (not (avalue-top? tr))
       (warn 'step-token-reg
-            "tried to token-case when tr wasn't unknown-input, was: ~a; all "
+            "tried to token-case when tr wasn't top, was: ~a; all "
             "uses of the token register should be preceeded by a `(get-token)'"
             (tr)))
-    (matching-lookahead looks cnsqs i^))
+    ((lattice-meet avalue-bounded-lattice) (possible-lookahead looks cnsqs i^)
+                                           tr))
    ((tr _ _ _) tr)))
 
 ;; step-reg-env : ARegisterEnv
@@ -147,16 +154,9 @@
     ((re (assign _ var prhs) _ _ eval-prhs _)
      (env-set re var (eval-prhs prhs)))
     ((re (and i (state-case _ var looks cnsqs)) i^ _ _ _)
-     (let ((l (matching-lookahead looks cnsqs i^))
+     (let ((l (possible-lookahead looks cnsqs i^))
            (aval (env-get re var)))
-       (when (not (avalue-⊑ l aval))
-         (warn 'step-reg-env
-               "in the form: ~a, the var, ~a, has abstract value: ~a, which "
-               "implies that the branch, ~a, gaurded by ~a is unreachable; "
-               "you should investigate why that branch seems unreachable to "
-               "the abstract evaluation"
-               (i var aval i^ l)))
-       (env-set re var (matching-lookahead looks cnsqs i^))))
+       (env-set re var ((lattice-meet avalue-bounded-lattice) l aval))))
     ((re (go _ target args) (join-point _ target params) _ _ le)
      (env-set/list (env-get le target) args params))
     ((re (and g (go _ target _))
@@ -179,29 +179,71 @@
      (env-set/all-to le ids re))
     ((le _ _ _) le)))
 
-;; matching-lookahead : [ListOf State] [ListOf Term-Seq*] GInsn -> AValue
-(define (matching-lookahead looks cnsqs i)
-  (let ((res
-         (for/first ([l looks]
-                     [c cnsqs]
-                     #:when (eq? (pda-term-insn (first c)) i))
-           (if l (set l) (set unknown-input)))))
+;; matching-lookahead : [U [ListOf State] [ListOf Symbol]]
+;;                      [ListOf Term-Seq*]
+;;                      GInsn
+;;                      AValue
+;;                      ->
+;;                      AValue
+;;
+;; Returns the lookahead that matches the given branch, indicated by i. If the
+;; branch is guarded by the else lookahead, base is used.
+(define (matching-lookahead looks cnsqs i base)
+  (let ((res (for/first ([l looks]
+                         [c cnsqs]
+                         #:when (eq? (pda-term-insn (first c)) i))
+               (or (and l (value->avalue l)) base))))
     (unless res
       (error 'matching-lookahead
              "no csnqs match ~v in ~v"
              i
              cnsqs))
     res))
+
+;; required-lookahead : [U [ListOf State] [ListOf Symbol]]
+;;                      [ListOf Term-Seq*]
+;;                      GInsn
+;;                      ->
+;;                      AValue
+;;
+;; Returns an AValue representing the minimum AValue which would permit
+;; execution to enter the given branch, indicated by i.
+;;
+;; NB: If we're in the else branch, nothing is required, i.e. avalue-bottom
+(define (required-lookahead looks cnsqs i)
+  (matching-lookahead looks cnsqs i avalue-bottom))
+
+;; possible-lookahead : [U [ListOf State] [ListOf Symbol]]
+;;                      [ListOf Term-Seq*]
+;;                      GInsn
+;;                      ->
+;;                      AValue
+;;
+;; Returns an AValue representing what we can safely assume about the value
+;; case'd on to reach the given branch, indicated by i.
+;;
+;; NB: If we're in the else branch, we know nothing about the value,
+;; i.e. avalue-top.
+(define (possible-lookahead looks cnsqs i)
+  (matching-lookahead looks cnsqs i avalue-top))
+
 ;; TODO: this should actually represent some TOP value, for "it could be anything"
 
 (define-syntax warn
   (syntax-rules ()
     ((_ id strings ... (vars ...))
-     (printf (string-append "[" (symbol->string id) "] "
-                            strings ...
-                            "\n")
-             vars ...))
+     (log-info (string-append "[" (symbol->string id) "] "
+                              strings ...
+                              "\n")
+               vars ...))
     ((_ id strings ...)
-     (printf (string-append "[" (symbol->string id) "] "
-                            strings ...
-                            "\n")))))
+     (log-info (string-append "[" (symbol->string id) "] "
+                              strings ...
+                              "\n")))))
+
+(define-syntax log-if-false
+  (syntax-rules ()
+    ((_ bool str args ...)
+     (begin (unless bool
+              (log-info str args ...))
+            bool))))
