@@ -54,13 +54,19 @@
      (for/seteq ([t^ succs]
                  #:when (valid-succ-state? t^ i in st tr re le))
        (match-let (((pda-term _ _ _ _ i^) t^))
+         ;; mutate the register environment for the entire program
+         (step-reg-env! re i i^
+                        st (curry eval-pure-rhs tr re) le)
+         ;; mutate the label environment for the entire program
+         ;; TODO, this is a total hack, the label environment should not use the
+         ;; same semantics as the register environemnt, there's no joining.
+         (step-lbl-env! le i i^ re)
          (abstract-state t^
                          (step-input in i i^)
                          next-stack
                          (step-token-reg tr i i^ in)
-                         (step-reg-env re i i^
-                                       st (curry eval-pure-rhs tr re) le)
-                         (step-lbl-env le i i^ re)))))))
+                         re
+                         le))))))
 
 ;; valid-succ-state? : [U Term Term*]
 ;;                     GInsn
@@ -131,34 +137,33 @@
                                            tr))
    ((tr _ _ _) tr)))
 
-;; step-reg-env : ARegisterEnv
-;;                GInsn
-;;                GInsn
-;;                AStack
-;;                (Pure-Rhs -> AValue)
-;;                LblClosureEnv
-;;                ->
-;;                ARegisterEnv
-(define step-reg-env
+;; step-reg-env! : ARegisterEnv
+;;                 GInsn
+;;                 GInsn
+;;                 AStack
+;;                 (Pure-Rhs -> AValue)
+;;                 LblClosureEnv
+;;                 ->
+;;                 Void
+(define step-reg-env!
   (match-lambda**
     ((re (sem-act _ name in-vars out-vars action) _ _ _ _)
      (when (not (= (length out-vars) 1))
        (warn 'step-reg-env
              "currently, sem-acts with anything but exactly one argument are "
              "not supported; all arguments after the first will be ignored"))
-     (if (or (empty? out-vars) (false? (first out-vars)))
-         re
-         (env-set re (first out-vars) (set (sem-act-val name in-vars)))))
+     (unless (or (empty? out-vars) (false? (first out-vars)))
+       (env-set! re (first out-vars) (set (sem-act-val name in-vars)))))
     ((re (assign _ var (pop)) _ st _ _)
-     (env-set re var st))
+     (env-set! re var st))
     ((re (assign _ var prhs) _ _ eval-prhs _)
-     (env-set re var (eval-prhs prhs)))
+     (env-set! re var (eval-prhs prhs)))
     ((re (and i (state-case _ var looks cnsqs)) i^ _ _ _)
      (let ((l (possible-lookahead looks cnsqs i^))
            (aval (env-get re var)))
-       (env-set re var ((lattice-meet avalue-bounded-lattice) l aval))))
+       (env-set! re var ((lattice-meet avalue-bounded-lattice) l aval))))
     ((re (go _ target args) (join-point _ target params) _ _ le)
-     (env-set/list (env-get le target) args params))
+     (env-set/list! re args params))
     ((re (and g (go _ target _))
          (and j (join-point _ lbl _))
          _ _ _)
@@ -170,13 +175,15 @@
      (error 'step-reg-env
             "this, ~a, go form is succeded by ~a instead of a join-point"
             (g i^)))
-    ((re _ _ _ _ _) re)))
+    ((re _ _ _ _ _)
+     (void))))
 
-;; step-lbl-env : LblClosureEnv GInsn GInsn ARegisterEnv -> LblClosureEnv
-(define step-lbl-env
+;; step-lbl-env! : LblClosureEnv GInsn GInsn ARegisterEnv -> Void
+(define step-lbl-env!
   (match-lambda**
-    ((le (label _ ids _ _ _ _ _) _ re)
-     (env-set/all-to le ids re))
+    ;; ((le (label _ ids _ _ _ _ _) _ re)
+    ;;  (for ([id ids])
+    ;;    (hash-set! le id re)))
     ((le _ _ _) le)))
 
 ;; matching-lookahead : [U [ListOf State] [ListOf Symbol]]

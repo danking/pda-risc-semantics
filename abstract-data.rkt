@@ -20,7 +20,7 @@
                        ,(abstract-state-in t)
                        ,(abstract-state-st t)
                        ,(abstract-state-tr t)
-                       ,(abstract-state-re t))))
+                       <#register-environment:...>)))
     ((if (pretty-printing)
          pretty-print
          write)
@@ -39,24 +39,21 @@
      (and (recur term1 term2)
           (recur in1 in2)
           (recur st1 st2)
-          (recur tr1 tr2)
-          (recur re1 re2))]))
+          (recur tr1 tr2))]))
 (define astate-equal-hash-code
   (match-lambda*
     [(list (abstract-state term1 in1 st1 tr1 re1 le1) recur)
      (+ (recur term1)
         (recur in1)
         (recur st1)
-        (recur tr1)
-        (recur re1))]))
+        (recur tr1))]))
 (define astate-equal-secondary-hash-code
   (match-lambda*
     [(list (abstract-state term1 in1 st1 tr1 re1 le1) recur)
      (+ (recur term1)
         (recur in1)
         (recur st1)
-        (recur tr1)
-        (recur re1))]))
+        (recur tr1))]))
 
 ;; an AInStream is [U UnknownInput NonEmptyInput EmptyInput]
 (singleton-struct unknown-input)
@@ -93,7 +90,7 @@
                   empty-env
                   empty-env))
 
-;; a LblClosureEnv is a [Hash LabelName ARegisterEnv]
+;; a LblClosureEnv is a [MutableHash LabelName ARegisterEnv]
 
 (define (write-sem-act-val s port mode)
   (write `(sem-act-val ,(syntax->datum (sem-act-val-name s))
@@ -117,14 +114,11 @@
 (define ainputstream-bounded-lattice
   bounded-flat-equal?-lattice)
 
-(define label-environment-bounded-lattice
-  bounded-flat-equal?-lattice)
-
 (define astate-bounded-lattice
   (pointwise-bounded-lattice abstract-state
     [abstract-state-node pda-term-bounded-lattice]
     [abstract-state-in ainputstream-bounded-lattice]
     [abstract-state-st avalue-bounded-lattice]
     [abstract-state-tr avalue-bounded-lattice]
-    [abstract-state-re register-environment-bounded-lattice]
-    [abstract-state-le label-environment-bounded-lattice]))
+    [abstract-state-re bounded-flat-eq?-lattice]
+    [abstract-state-le bounded-flat-eq?-lattice]))
