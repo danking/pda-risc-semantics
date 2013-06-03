@@ -18,8 +18,8 @@
   (abstract-state-node (flow-state-astate f)))
 
 (define strip-flow-BP-to-node-BP
-  (match-lambda ((BP (flow-state (abstract-state node1 _ _ _ _ _) _)
-                     (flow-state (abstract-state node2 _ _ _ _ _) _))
+  (match-lambda ((BP (flow-state (abstract-state: node1 _ _ _ _ _) _)
+                     (flow-state (abstract-state: node2 _ _ _ _ _) _))
                  (BP node1 node2))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

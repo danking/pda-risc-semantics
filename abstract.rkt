@@ -8,6 +8,7 @@
          abstract-step/new-stack
          init-astate
          (struct-out abstract-state)
+         abstract-state:
          astate-bounded-lattice
          astate-same-sub-lattice?
          astate-sub-lattice-hash-code)
@@ -40,7 +41,7 @@
 ;; abstract-step : AState -> [SetOf AState]
 (define abstract-step
   (match-lambda
-    ((and as (abstract-state (pda-term _ _ _ _ i) in st tr re le))
+    ((and as (abstract-state: (pda-term _ _ _ _ i) in st tr re le))
      (unless tr
        (warn 'abstract-step
              "I don't expect tr to ever be false in: ~v"
@@ -50,7 +51,7 @@
 ;; abstract-step : AState AStack -> [SetOf Astate]
 (define abstract-step/new-stack
   (match-lambda**
-    (((abstract-state (pda-term _ succs _ _ i) in st tr re le) next-stack)
+    (((abstract-state: (pda-term _ succs _ _ i) in st tr re le) next-stack)
      (for/seteq ([t^ succs]
                  #:when (valid-succ-state? t^ i in st tr re le))
        (match-let (((pda-term _ _ _ _ i^) t^))
@@ -61,12 +62,12 @@
          ;; TODO, this is a total hack, the label environment should not use the
          ;; same semantics as the register environemnt, there's no joining.
          (step-lbl-env! le i i^ re)
-         (abstract-state t^
-                         (step-input in i i^)
-                         next-stack
-                         (step-token-reg tr i i^ in)
-                         re
-                         le))))))
+         (make-abstract-state t^
+                              (step-input in i i^)
+                              next-stack
+                              (step-token-reg tr i i^ in)
+                              re
+                              le))))))
 
 ;; valid-succ-state? : [U Term Term*]
 ;;                     GInsn

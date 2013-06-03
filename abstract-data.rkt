@@ -6,6 +6,8 @@
          "abstract-register-environment.rkt")
 
 (provide (struct-out abstract-state)
+         make-abstract-state
+         abstract-state:
          (struct-out sem-act-val)
          unknown-input unknown-input?
          non-empty-input non-empty-input?
@@ -33,27 +35,15 @@
 ;; (through the label-name, which links to join-points and go instructions)
 (define astate-equal?
   (match-lambda*
-    [(list (abstract-state term1 in1 st1 tr1 re1 le1)
-           (abstract-state term2 in2 st2 tr2 re2 le2)
+    [(list (abstract-state: term1 in1 st1 tr1 re1 le1)
+           (abstract-state: term2 in2 st2 tr2 re2 le2)
            recur)
      (and (recur term1 term2)
           (recur in1 in2)
           (recur st1 st2)
           (recur tr1 tr2))]))
-(define astate-equal-hash-code
-  (match-lambda*
-    [(list (abstract-state term1 in1 st1 tr1 re1 le1) recur)
-     (+ (recur term1)
-        (recur in1)
-        (recur st1)
-        (recur tr1))]))
-(define astate-equal-secondary-hash-code
-  (match-lambda*
-    [(list (abstract-state term1 in1 st1 tr1 re1 le1) recur)
-     (+ (recur term1)
-        (recur in1)
-        (recur st1)
-        (recur tr1))]))
+(define (compute-astate-hash-code node in st tr)
+  (equal-hash-code (list node in st tr)))
 
 ;; an AInStream is [U UnknownInput NonEmptyInput EmptyInput]
 (singleton-struct unknown-input)
@@ -61,18 +51,40 @@
 (singleton-struct empty-input)
 
 ;; An AState is a
-;;  (abstract-state [U Term Term*]
-;;                  AInStream
-;;                  AValue
-;;                  AValue
-;;                  ARegisterEnv
-;;                  LblClosureEnv)
-(struct abstract-state (node in st tr re le)
+;;  (abstract-state-constructor [U Term Term*]
+;;                              AInStream
+;;                              AValue
+;;                              AValue
+;;                              ARegisterEnv
+;;                              LblClosureEnv
+;;                              Number)
+(struct abstract-state (node in st tr re le hash-code)
         #:transparent
         #:property prop:custom-write write-abstract-state
-        #:property prop:equal+hash (list astate-equal?
-                                         astate-equal-hash-code
-                                         astate-equal-secondary-hash-code))
+        #:methods gen:equal+hash
+        [(define equal-proc astate-equal?)
+         (define (hash-proc x recur) (abstract-state-hash-code x))
+         (define (hash2-proc x recur) (- (abstract-state-hash-code x)))]
+        #:constructor-name abstract-state-constructor)
+
+(define-match-expander abstract-state:
+  (lambda (stx)
+    (syntax-case stx ()
+      [(_ elts ...)
+       #'(? abstract-state?
+            (app (lambda (x)
+                   (list
+                    (abstract-state-node x)
+                    (abstract-state-in x)
+                    (abstract-state-st x)
+                    (abstract-state-tr x)
+                    (abstract-state-re x)
+                    (abstract-state-le x)))
+                 (list elts ...)))])))
+
+(define (make-abstract-state node in st tr re le)
+  (abstract-state-constructor node in st tr re le
+                              (compute-astate-hash-code node in st tr)))
 
 ;; where,
 ;;   - node is the pda-term
@@ -83,12 +95,12 @@
 ;;   - le is the label closure environment (all the values in scope when
 ;;     the labeled codepoint was created)
 (define (init-astate node)
-  (abstract-state node
-                  unknown-input
-                  avalue-bottom
-                  avalue-bottom
-                  empty-env
-                  empty-env))
+  (make-abstract-state node
+                       unknown-input
+                       avalue-bottom
+                       avalue-bottom
+                       empty-env
+                       empty-env))
 
 ;; a LblClosureEnv is a [MutableHash LabelName ARegisterEnv]
 
@@ -115,7 +127,7 @@
   bounded-flat-equal?-lattice)
 
 (define astate-bounded-lattice
-  (pointwise-bounded-lattice abstract-state
+  (pointwise-bounded-lattice make-abstract-state
     [abstract-state-node pda-term-bounded-lattice]
     [abstract-state-in ainputstream-bounded-lattice]
     [abstract-state-st avalue-bounded-lattice]
