@@ -8,7 +8,6 @@
 (provide (struct-out abstract-state)
          make-abstract-state
          abstract-state:
-         (struct-out sem-act-val)
          unknown-input unknown-input?
          non-empty-input non-empty-input?
          empty-input empty-input?
@@ -35,8 +34,8 @@
 ;; (through the label-name, which links to join-points and go instructions)
 (define astate-equal?
   (match-lambda*
-    [(list (abstract-state: term1 in1 st1 tr1 re1 le1)
-           (abstract-state: term2 in2 st2 tr2 re2 le2)
+    [(list (abstract-state: term1 in1 st1 tr1 _ _ _)
+           (abstract-state: term2 in2 st2 tr2 _ _ _)
            recur)
      (and (recur term1 term2)
           (recur in1 in2)
@@ -57,8 +56,9 @@
 ;;                              AValue
 ;;                              ARegisterEnv
 ;;                              LblClosureEnv
+;;                              [MutableHash Value Natural]
 ;;                              Number)
-(struct abstract-state (node in st tr re le hash-code)
+(struct abstract-state (node in st tr re le val->bits hash-code)
         #:transparent
         #:property prop:custom-write write-abstract-state
         #:methods gen:equal+hash
@@ -79,11 +79,12 @@
                     (abstract-state-st x)
                     (abstract-state-tr x)
                     (abstract-state-re x)
-                    (abstract-state-le x)))
+                    (abstract-state-le x)
+                    (abstract-state-val->bits x)))
                  (list elts ...)))])))
 
-(define (make-abstract-state node in st tr re le)
-  (abstract-state-constructor node in st tr re le
+(define (make-abstract-state node in st tr re le val->bits)
+  (abstract-state-constructor node in st tr re le val->bits
                               (compute-astate-hash-code node in st tr)))
 
 ;; where,
@@ -94,28 +95,17 @@
 ;;   - re is the register environment (besides the token register)
 ;;   - le is the label closure environment (all the values in scope when
 ;;     the labeled codepoint was created)
+;;   - val->bits is the mapping from values to bits
 (define (init-astate node)
   (make-abstract-state node
                        unknown-input
                        avalue-bottom
                        avalue-bottom
                        empty-env
-                       empty-env))
+                       empty-env
+                       (make-hash '((#f . 1)))))
 
 ;; a LblClosureEnv is a [MutableHash LabelName ARegisterEnv]
-
-(define (write-sem-act-val s port mode)
-  (write `(sem-act-val ,(syntax->datum (sem-act-val-name s))
-                       ,(map (lambda (a)
-                               (if (syntax? a) (syntax-e a) a))
-                             (sem-act-val-args s)))
-         port))
-
-;; a SemActVal is how we represent the result of a sem-act:
-;;   (sem-act-val [Syntax Id] [ListOf Value])
-(struct sem-act-val (name args) #:transparent
-        #:property prop:custom-write write-sem-act-val)
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Lattices
@@ -133,4 +123,5 @@
     [abstract-state-st avalue-bounded-lattice]
     [abstract-state-tr avalue-bounded-lattice]
     [abstract-state-re bounded-flat-eq?-lattice]
-    [abstract-state-le bounded-flat-eq?-lattice]))
+    [abstract-state-le bounded-flat-eq?-lattice]
+    [abstract-state-val->bits bounded-flat-eq?-lattice]))
