@@ -12,7 +12,7 @@
          astate-sub-lattice-hash-code)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Sub-lattices in the Abstract State Lattice
+;; Sub-Lattices in the Abstract State Lattice
 
 (define (astate-same-sub-lattice? as1 as2 [recur equal?])
   (= (pda-term->uid (abstract-state-node as1))
