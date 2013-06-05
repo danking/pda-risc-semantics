@@ -8,17 +8,17 @@
          init-astate
          (struct-out abstract-state)
          astate-bounded-lattice
-         astate-same-chain?
-         astate-chain-hash-code)
+         astate-same-sub-lattice?
+         astate-sub-lattice-hash-code)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Chains in the Abstract State Lattice
+;; Sub-lattices in the Abstract State Lattice
 
-(define (astate-same-chain? as1 as2 [recur equal?])
+(define (astate-same-sub-lattice? as1 as2 [recur equal?])
   (= (pda-term->uid (abstract-state-node as1))
      (pda-term->uid (abstract-state-node as2))))
 
-(define (astate-chain-hash-code as [recur equal-hash-code])
+(define (astate-sub-lattice-hash-code as [recur equal-hash-code])
   (recur (pda-term->uid (abstract-state-node as))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
