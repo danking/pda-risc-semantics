@@ -39,38 +39,36 @@
     ((register _ uid _ _) (env-get re rhs))))
 
 ;; abstract-step : AState -> [SetOf AState]
-(define abstract-step
-  (match-lambda
-    ((and as (abstract-state: (pda-term _ _ _ _ i) in st tr re le val->bits))
-     (unless tr
-       (warn 'abstract-step
-             "I don't expect tr to ever be false in: ~v"
-             (as)))
-     (abstract-step/new-stack as (step-stack st i (curry eval-pure-rhs
-                                                         tr
-                                                         re
-                                                         val->bits))))))
+(define/match (abstract-step as)
+  [((abstract-state: (pda-term _ _ _ _ i) in st tr re le val->bits))
+   (unless tr
+     (warn 'abstract-step
+           "I don't expect tr to ever be false in: ~v"
+           (as)))
+   (abstract-step/new-stack as (step-stack st i (curry eval-pure-rhs
+                                                       tr
+                                                       re
+                                                       val->bits)))])
 
 ;; abstract-step : AState AStack -> [SetOf Astate]
-(define abstract-step/new-stack
-  (match-lambda**
-    (((abstract-state: (pda-term _ succs _ _ i) in st tr re le val->bits) next-stack)
-     (for/seteq ([t^ succs]
-                 #:when (valid-succ-state? t^ i in st tr re le val->bits))
-       (match-let (((pda-term _ _ _ _ i^) t^))
-         ;; mutate the register environment for the entire program
-         (step-reg-env! re i i^ st (curry eval-pure-rhs tr re) le val->bits)
-         ;; mutate the label environment for the entire program
-         ;; TODO, this is a total hack, the label environment should not use the
-         ;; same semantics as the register environemnt, there's no joining.
-         (step-lbl-env! le i i^ re val->bits)
-         (make-abstract-state t^
-                              (step-input in i i^)
-                              next-stack
-                              (step-token-reg tr i i^ in val->bits)
-                              re
-                              le
-                              val->bits))))))
+(define/match (abstract-step/new-stack astate astack)
+  [((abstract-state: (pda-term _ succs _ _ i) in st tr re le val->bits) next-stack)
+   (for/seteq ([t^ succs]
+               #:when (valid-succ-state? t^ i in st tr re le val->bits))
+     (match-let (((pda-term _ _ _ _ i^) t^))
+       ;; mutate the register environment for the entire program
+       (step-reg-env! re i i^ st (curry eval-pure-rhs tr re) le val->bits)
+       ;; mutate the label environment for the entire program
+       ;; TODO, this is a total hack, the label environment should not use the
+       ;; same semantics as the register environemnt, there's no joining.
+       (step-lbl-env! le i i^ re val->bits)
+       (make-abstract-state t^
+                            (step-input in i i^)
+                            next-stack
+                            (step-token-reg tr i i^ in val->bits)
+                            re
+                            le
+                            val->bits)))])
 
 ;; valid-succ-state? : [U Term Term*]
 ;;                     GInsn
@@ -101,51 +99,49 @@
     ((_ _ _ _) #t)))
 
 ;; step-input : AInStream GInsn GInsn -> AInStream
-(define step-input
-  (match-lambda**
-    ((_ (drop-token _) _)
-     unknown-input)
-    ((_ (if-eos _ cnsq altr) t^)
-     (if (eq? t^ cnsq)
-         empty-input
-         non-empty-input))
-    ((in _ _) in)))
+(define/match (step-input ainstream i1 i2)
+  [(_ (drop-token _) _)
+   unknown-input]
+  [(_ (if-eos _ cnsq altr) _)
+   (if (eq? i2 cnsq) empty-input non-empty-input)]
+  [(in _ _) in])
 
 ;; step-stack : AStack GInsn (Pure-Rhs -> AValue) -> AStack
-(define step-stack
-  (match-lambda**
-    ((_ (push _ prhs) eval-prhs) (eval-prhs prhs))
-    ((_ (assign _ var (pop)) _)
+(define (step-stack st i eval-prhs)
+  (match i
+    [(push _ prhs)
+     (eval-prhs prhs)]
+    [(assign _ var (pop))
      (error 'step-stack
-            "found a pop node, this should have been caught earlier"))
-    ((st _ _) st)))
+          "found a pop node, this should have been caught earlier")]
+    [_ st]))
 
 ;; step-token-reg : AValue GInsn GInsn AInStream [MutableHash Value Natural] -> AValue
-(define step-token-reg
-  (match-lambda**
-   ((tr (get-token _) _ in _)
-    (when (not (non-empty-input? in))
-      (warn 'step-token-reg
-            "tried to get-token when the input stream was not in the "
-            "non-empty-input state, was: ~a ; this is prevented by using the "
-            "`if-eos' form prior to a use of `(get-token)'"
-            (in)))
-    (if (non-empty-input? in)
-        avalue-top
-        avalue-bottom))
-   ((tr (drop-token _) _ _ _) avalue-bottom)
-   ((tr (token-case _ looks cnsqs) i^ _ val->bits)
-    (when (not (avalue-top? tr))
-      (warn 'step-token-reg
-            "tried to token-case when tr wasn't top, was: ~a; all "
-            "uses of the token register should be preceeded by a `(get-token)'"
-            (tr)))
-    ((lattice-meet avalue-bounded-lattice) (possible-lookahead looks
-                                                               cnsqs
-                                                               i^
-                                                               val->bits)
-                                           tr))
-   ((tr _ _ _ _) tr)))
+(define (step-token-reg tr i1 i2 in val->bits)
+  (match i1
+    [(get-token _)
+     (when (not (non-empty-input? in))
+       (warn 'step-token-reg
+             "tried to get-token when the input stream was not in the "
+             "non-empty-input state, was: ~a ; this is prevented by using the "
+             "`if-eos' form prior to a use of `(get-token)'"
+             (in)))
+     (if (non-empty-input? in)
+         avalue-top
+         avalue-bottom)]
+    [(drop-token _) avalue-bottom]
+    [(token-case _ looks cnsqs)
+     (when (not (avalue-top? tr))
+       (warn 'step-token-reg
+             "tried to token-case when tr wasn't top, was: ~a; all "
+             "uses of the token register should be preceeded by a `(get-token)'"
+             (tr)))
+     ((lattice-meet avalue-bounded-lattice) (possible-lookahead looks
+                                                                cnsqs
+                                                                i2
+                                                                val->bits)
+                                            tr)]
+    [_ tr]))
 
 ;; step-reg-env! : ARegisterEnv
 ;;                 GInsn
@@ -156,39 +152,37 @@
 ;;                 [MutableHash Value Natural]
 ;;                 ->
 ;;                 Void
-(define step-reg-env!
-  (match-lambda**
-    ((re (and semact (sem-act _ name in-vars out-vars action)) _ _ _ _ val->bits)
+(define (step-reg-env! re i1 i2 st eval-prhs le val->bits)
+  (match* (i1 i2)
+    [((sem-act _ name in-vars out-vars action) i2)
      (when (not (= (length out-vars) 1))
        (warn 'step-reg-env
              "currently, sem-acts with anything but exactly one argument are "
              "not supported; all arguments after the first will be ignored"))
      (unless (or (empty? out-vars) (false? (first out-vars)))
        (env-set! re (first out-vars)
-                 (value->avalue semact val->bits))))
-    ((re (assign _ var (pop)) _ st _ _ _)
-     (env-set! re var st))
-    ((re (assign _ var prhs) _ _ eval-prhs _ _)
-     (env-set! re var (eval-prhs prhs)))
-    ((re (and i (state-case _ var looks cnsqs)) i^ _ _ _ val->bits)
-     (let ((l (possible-lookahead looks cnsqs i^ val->bits))
+                 (value->avalue i1 val->bits)))]
+    [((assign _ var (pop)) i2)
+     (env-set! re var st)]
+    [((assign _ var prhs) i2)
+     (env-set! re var (eval-prhs prhs))]
+    [((state-case _ var looks cnsqs) i2)
+     (let ((l (possible-lookahead looks cnsqs i2 val->bits))
            (aval (env-get re var)))
-       (env-set! re var ((lattice-meet avalue-bounded-lattice) l aval))))
-    ((re (go _ target args) (join-point _ target params) _ _ le _)
-     (env-set/list! re args params))
-    ((re (and g (go _ target _))
-         (and j (join-point _ lbl _))
-         _ _ _ _)
+       (env-set! re var ((lattice-meet avalue-bounded-lattice) l aval)))]
+    [((go _ target args) (join-point _ target params))
+     (env-set/list! re args params)]
+    [((go _ target _) (join-point _ lbl _))
      (error 'step-reg-env
             (string-append "this, ~a, go form's target label, ~a, doesn't match this "
                            "join-point, ~a, form's label, ~a")
-            g target j lbl))
-    ((re (and g (go _ _ _)) i^ _ _ _ _)
+            i1 target i2 lbl)]
+    [((go _ _ _) _)
      (error 'step-reg-env
             "this, ~a, go form is succeded by ~a instead of a join-point"
-            (g i^)))
-    ((re _ _ _ _ _ _)
-     (void))))
+            i1 i2)]
+    [(_ _)
+     (void)]))
 
 ;; step-lbl-env! : LblClosureEnv GInsn GInsn ARegisterEnv -> Void
 (define step-lbl-env!
