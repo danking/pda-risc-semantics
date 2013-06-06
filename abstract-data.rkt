@@ -5,14 +5,18 @@
          "abstract-value-data.rkt"
          "abstract-register-environment.rkt")
 
-(provide (struct-out abstract-state)
-         make-abstract-state
+(provide abstract-state-node
+         abstract-state-in
+         abstract-state-re
+         abstract-state-st
+         abstract-state-tr
+         make-abstract-state/same-system
          abstract-state:
          unknown-input unknown-input?
          non-empty-input non-empty-input?
          empty-input empty-input?
          init-astate
-         astate-bounded-lattice
+         astate-lattice
          (all-from-out "abstract-register-environment.rkt")
          (all-from-out "abstract-value-data.rkt"))
 
@@ -52,13 +56,13 @@
 ;; An AState is a
 ;;  (abstract-state-constructor [U Term Term*]
 ;;                              AInStream
-;;                              AValue
-;;                              AValue
 ;;                              ARegisterEnv
 ;;                              LblClosureEnv
 ;;                              [MutableHash Value Natural]
-;;                              Number)
-(struct abstract-state (node in st tr re le val->bits hash-code)
+;;                              Number
+;;                              [MutableHash [U Term Term*] AValue]
+;;                              [MutableHash [U Term Term*] AValue])
+(struct abstract-state (node in re le val->bits hash-code stack-hash tr-hash)
         #:transparent
         #:property prop:custom-write write-abstract-state
         #:methods gen:equal+hash
@@ -83,9 +87,42 @@
                     (abstract-state-val->bits x)))
                  (list elts ...)))])))
 
-(define (make-abstract-state node in st tr re le val->bits)
-  (abstract-state-constructor node in st tr re le val->bits
-                              (compute-astate-hash-code node in st tr)))
+(define (abstract-state-st as)
+  (hash-ref (abstract-state-stack-hash as) (abstract-state-node as) avalue-bottom))
+
+(define (abstract-state-tr as)
+  (hash-ref (abstract-state-tr-hash as) (abstract-state-node as) avalue-bottom))
+
+(define (hash-set!/join bounded-lattice hash key value)
+  (hash-set! hash
+             key
+             ((lattice-join bounded-lattice)
+              (hash-ref hash
+                        key
+                        (bounded-lattice-bottom bounded-lattice))
+              value)))
+
+(define avalue-hash-set!/join (curry hash-set!/join avalue-bounded-lattice))
+
+(define (make-abstract-state/same-system node in st tr existing-astate)
+  (make-abstract-state node in st tr
+                       (abstract-state-re existing-astate)
+                       (abstract-state-le existing-astate)
+                       (abstract-state-val->bits existing-astate)
+                       (abstract-state-stack-hash existing-astate)
+                       (abstract-state-tr-hash existing-astate)))
+
+(define (make-abstract-state node in st tr re le val->bits stack-hash tr-hash)
+  (avalue-hash-set!/join stack-hash node st)
+  (avalue-hash-set!/join tr-hash node tr)
+  (abstract-state-constructor node in re le val->bits
+                              (compute-astate-hash-code node in st tr)
+                              stack-hash
+                              tr-hash))
+
+(define (same-system? x y)
+  (and (eq? (abstract-state-stack-hash x) (abstract-state-stack-hash y))
+       (eq? (abstract-state-tr-hash x) (abstract-state-tr-hash y))))
 
 ;; where,
 ;;   - node is the pda-term
@@ -103,7 +140,9 @@
                        avalue-bottom
                        empty-env
                        empty-env
-                       (make-hash '((#f . 1)))))
+                       (make-hash '((#f . 1)))
+                       (make-hash)
+                       (make-hash)))
 
 ;; a LblClosureEnv is a [MutableHash LabelName ARegisterEnv]
 
@@ -116,12 +155,14 @@
 (define ainputstream-bounded-lattice
   bounded-flat-equal?-lattice)
 
-(define astate-bounded-lattice
-  (pointwise-bounded-lattice make-abstract-state
+(define astate-lattice
+  (pointwise-lattice make-abstract-state
     [abstract-state-node pda-term-bounded-lattice]
     [abstract-state-in ainputstream-bounded-lattice]
     [abstract-state-st avalue-bounded-lattice]
     [abstract-state-tr avalue-bounded-lattice]
-    [abstract-state-re bounded-flat-eq?-lattice]
-    [abstract-state-le bounded-flat-eq?-lattice]
-    [abstract-state-val->bits bounded-flat-eq?-lattice]))
+    [abstract-state-re flat-eq?-lattice]
+    [abstract-state-le flat-eq?-lattice]
+    [abstract-state-val->bits flat-eq?-lattice]
+    [abstract-state-stack-hash flat-eq?-lattice]
+    [abstract-state-tr-hash flat-eq?-lattice]))

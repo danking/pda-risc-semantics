@@ -7,9 +7,13 @@
 (provide abstract-step
          abstract-step/new-stack
          init-astate
-         (struct-out abstract-state)
+         abstract-state-node
+         abstract-state-in
+         abstract-state-re
+         abstract-state-st
+         abstract-state-tr
          abstract-state:
-         astate-bounded-lattice
+         astate-lattice
          astate-same-sub-lattice?
          astate-sub-lattice-hash-code)
 
@@ -53,22 +57,21 @@
 ;; abstract-step : AState AStack -> [SetOf Astate]
 (define/match (abstract-step/new-stack astate astack)
   [((abstract-state: (pda-term _ succs _ _ i) in st tr re le val->bits) next-stack)
-   (for/seteq ([t^ succs]
-               #:when (valid-succ-state? t^ i in st tr re le val->bits))
-     (match-let (((pda-term _ _ _ _ i^) t^))
+   (for/seteq ([succ succs]
+               #:when (valid-succ-state? succ i in st tr re le val->bits))
+     (match-let (((pda-term _ _ _ _ succ-insn) succ))
        ;; mutate the register environment for the entire program
-       (step-reg-env! re i i^ st (curry eval-pure-rhs tr re) le val->bits)
+       (step-reg-env! re i succ-insn st (curry eval-pure-rhs tr re) le val->bits)
        ;; mutate the label environment for the entire program
        ;; TODO, this is a total hack, the label environment should not use the
        ;; same semantics as the register environemnt, there's no joining.
-       (step-lbl-env! le i i^ re val->bits)
-       (make-abstract-state t^
-                            (step-input in i i^)
-                            next-stack
-                            (step-token-reg tr i i^ in val->bits)
-                            re
-                            le
-                            val->bits)))])
+       (step-lbl-env! le i succ-insn re val->bits)
+       (make-abstract-state/same-system succ
+                                        (step-input in i succ-insn)
+                                        next-stack
+                                        (step-token-reg tr i succ-insn
+                                                        in val->bits)
+                                        astate)))])
 
 ;; valid-succ-state? : [U Term Term*]
 ;;                     GInsn
