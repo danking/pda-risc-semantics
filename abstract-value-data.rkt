@@ -78,7 +78,7 @@
         [(syntax? v) ;; v is a token from a token-case term
          (get-val-bit-rep (syntax->datum v))]
         [(sem-act? v)
-         (get-val-bit-rep v)]
+         (get-val-bit-rep (syntax->datum (sem-act-name v)))]
         [else (get-val-bit-rep v)]))
 
 ;; avalue->value-set : AValue [MutableHash Value Natural] -> [SetOf Value]

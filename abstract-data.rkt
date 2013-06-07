@@ -7,10 +7,10 @@
 
 (provide abstract-state-node
          abstract-state-in
-         abstract-state-re
          abstract-state-st
          abstract-state-tr
-         make-abstract-state/same-system
+         abstract-state-re
+         make-abstract-state
          abstract-state:
          unknown-input unknown-input?
          non-empty-input non-empty-input?
@@ -25,7 +25,7 @@
                        ,(abstract-state-in t)
                        ,(abstract-state-st t)
                        ,(abstract-state-tr t)
-                       <#register-environment:...>)))
+                       ,(abstract-state-re t))))
     ((if (pretty-printing)
          pretty-print
          write)
@@ -38,15 +38,16 @@
 ;; (through the label-name, which links to join-points and go instructions)
 (define astate-equal?
   (match-lambda*
-    [(list (abstract-state: term1 in1 st1 tr1 _ _ _)
-           (abstract-state: term2 in2 st2 tr2 _ _ _)
+    [(list (abstract-state: term1 in1 st1 tr1 re1)
+           (abstract-state: term2 in2 st2 tr2 re2)
            recur)
      (and (recur term1 term2)
           (recur in1 in2)
           (recur st1 st2)
-          (recur tr1 tr2))]))
-(define (compute-astate-hash-code node in st tr)
-  (equal-hash-code (list node in st tr)))
+          (recur tr1 tr2)
+          (recur re1 re2))]))
+(define (compute-astate-hash-code node in st tr re)
+  (equal-hash-code (list node in st tr re)))
 
 ;; an AInStream is [U UnknownInput NonEmptyInput EmptyInput]
 (singleton-struct unknown-input)
@@ -56,13 +57,11 @@
 ;; An AState is a
 ;;  (abstract-state-constructor [U Term Term*]
 ;;                              AInStream
+;;                              AValue
+;;                              AValue
 ;;                              ARegisterEnv
-;;                              LblClosureEnv
-;;                              [MutableHash Value Natural]
 ;;                              Number
-;;                              [MutableHash [U Term Term*] AValue]
-;;                              [MutableHash [U Term Term*] AValue])
-(struct abstract-state (node in re le val->bits hash-code stack-hash tr-hash)
+(struct abstract-state (node in st tr re hash-code)
         #:transparent
         #:property prop:custom-write write-abstract-state
         #:methods gen:equal+hash
@@ -82,47 +81,12 @@
                     (abstract-state-in x)
                     (abstract-state-st x)
                     (abstract-state-tr x)
-                    (abstract-state-re x)
-                    (abstract-state-le x)
-                    (abstract-state-val->bits x)))
+                    (abstract-state-re x)))
                  (list elts ...)))])))
 
-(define (abstract-state-st as)
-  (hash-ref (abstract-state-stack-hash as) (abstract-state-node as) avalue-bottom))
-
-(define (abstract-state-tr as)
-  (hash-ref (abstract-state-tr-hash as) (abstract-state-node as) avalue-bottom))
-
-(define (hash-set!/join bounded-lattice hash key value)
-  (hash-set! hash
-             key
-             ((lattice-join bounded-lattice)
-              (hash-ref hash
-                        key
-                        (bounded-lattice-bottom bounded-lattice))
-              value)))
-
-(define avalue-hash-set!/join (curry hash-set!/join avalue-bounded-lattice))
-
-(define (make-abstract-state/same-system node in st tr existing-astate)
-  (make-abstract-state node in st tr
-                       (abstract-state-re existing-astate)
-                       (abstract-state-le existing-astate)
-                       (abstract-state-val->bits existing-astate)
-                       (abstract-state-stack-hash existing-astate)
-                       (abstract-state-tr-hash existing-astate)))
-
-(define (make-abstract-state node in st tr re le val->bits stack-hash tr-hash)
-  (avalue-hash-set!/join stack-hash node st)
-  (avalue-hash-set!/join tr-hash node tr)
-  (abstract-state-constructor node in re le val->bits
-                              (compute-astate-hash-code node in st tr)
-                              stack-hash
-                              tr-hash))
-
-(define (same-system? x y)
-  (and (eq? (abstract-state-stack-hash x) (abstract-state-stack-hash y))
-       (eq? (abstract-state-tr-hash x) (abstract-state-tr-hash y))))
+(define (make-abstract-state node in st tr re)
+  (abstract-state-constructor node in st tr re
+                              (compute-astate-hash-code node in st tr re)))
 
 ;; where,
 ;;   - node is the pda-term
@@ -138,11 +102,7 @@
                        unknown-input
                        avalue-bottom
                        avalue-bottom
-                       empty-env
-                       empty-env
-                       (make-hash '((#f . 1)))
-                       (make-hash)
-                       (make-hash)))
+                       empty-env))
 
 ;; a LblClosureEnv is a [MutableHash LabelName ARegisterEnv]
 
@@ -161,8 +121,4 @@
     [abstract-state-in ainputstream-bounded-lattice]
     [abstract-state-st avalue-bounded-lattice]
     [abstract-state-tr avalue-bounded-lattice]
-    [abstract-state-re flat-eq?-lattice]
-    [abstract-state-le flat-eq?-lattice]
-    [abstract-state-val->bits flat-eq?-lattice]
-    [abstract-state-stack-hash flat-eq?-lattice]
-    [abstract-state-tr-hash flat-eq?-lattice]))
+    [abstract-state-re register-environment-bounded-lattice]))
