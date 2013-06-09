@@ -2,7 +2,8 @@
 
 (require "../lattice/lattice.rkt"
          "abstract-value-data.rkt")
-(provide env empty-env env-val-gte? env-get env-set env-set/list env-set/all-to
+(provide env empty-env env-val-gte? env-get
+         env-set env-refine env-set/list env-set/all-to
          register-environment-bounded-lattice
          register-environment-top
          register-environment-top?
@@ -11,6 +12,7 @@
 (module+ test (require rackunit))
 
 (define avalue-join (lattice-join avalue-bounded-lattice))
+(define avalue-meet (lattice-meet avalue-bounded-lattice))
 (define avalue-gte? (lattice-gte? avalue-bounded-lattice))
 
 ;; an [AEnv K] is a [Hash K AValue]
@@ -26,6 +28,9 @@
 (define (env-set env register new-avalue)
   (let ((existing-avalue (env-get env register)))
     (dict-set env register (avalue-join existing-avalue new-avalue))))
+(define (env-refine env register new-avalue)
+  (let ((existing-avalue (env-get env register)))
+    (dict-set env register (avalue-meet existing-avalue new-avalue))))
 (define (env-set/list env vars vals)
   (for/fold ([env env])
       ([var vars]

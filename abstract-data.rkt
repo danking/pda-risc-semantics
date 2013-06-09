@@ -71,6 +71,12 @@
          (define (hash-proc x recur) (abstract-state-hash-code x))
          (define (hash2-proc x recur) (- (abstract-state-hash-code x)))]
         #:constructor-name abstract-state-constructor)
+;; where,
+;;   - node is the pda-term
+;;   - in is the input stream
+;;   - st is the stack
+;;   - tr is the token register
+;;   - re is the register environment (besides the token register)
 
 (define-match-expander abstract-state:
   (lambda (stx)
@@ -90,18 +96,12 @@
   (abstract-state-constructor node in st tr re
                               (compute-astate-hash-code node in st tr re)))
 
-;; where,
-;;   - node is the pda-term
-;;   - in is the input stream
-;;   - st is the stack
-;;   - tr is the token register
-;;   - re is the register environment (besides the token register)
 (define (init-astate node)
   (make-abstract-state node
                        unknown-input
-                       (configuration:stack-time init-configuration node)
-                       (configuration:tr-time init-configuration node)
-                       (configuration-re-time init-configuration)))
+                       (configuration:stack-time (init-configuration node) node)
+                       (configuration:tr-time (init-configuration node) node)
+                       (configuration:re-time (init-configuration node) node)))
 
 ;; a LblClosureEnv is a [MutableHash LabelName ARegisterEnv]
 

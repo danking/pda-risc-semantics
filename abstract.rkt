@@ -19,6 +19,12 @@
          astate-sub-lattice-hash-code)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; AValue Shorthands
+
+(define avalue-meet (lattice-meet avalue-bounded-lattice))
+(define avalue-lte? (lattice-lte? avalue-bounded-lattice))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Sub-Lattices in the Abstract State Lattice
 
 (define (astate-same-sub-lattice? as1 as2 [recur equal?])
@@ -41,22 +47,24 @@
   [(_
     (abstract-state: push-term push-in _ _ _)
     (abstract-state: pop-term pop-in _ _ _)
-    (configuration: global-re _ stack-map _ tr-map _ val->bits))
+    (configuration: _ _ stack-map _ tr-map _ _))
    (match-define (assign _ var _) (pda-term-insn pop-term))
 
-   (let* ((new-stack (env-get (configuration-stack-map config) push-term))
-          (new-re-config (config/re-set config var new-stack)))
+   (let ((new-stack (hash-ref stack-map push-term))
+         (pred-tr (hash-ref tr-map push-term)))
      (for/fold ((succ-states (set))
-                (config new-re-config))
+                (config config))
          ((succ-term (in-set (pda-term-succs pop-term))))
-       (let ((config (config/update-st config succ-term new-stack)))
+       (let* ((config (config/update-st config succ-term new-stack))
+              (config (config/re-set config succ-term var new-stack))
+              (config (config/update-tr config succ-term pred-tr)))
          (values (set-add succ-states (stamped-state succ-term pop-in config))
                  config))))])
 
 (define/match (successor-states push node config)
   [(_
     (abstract-state: term in _ _ _)
-    (configuration: global-re _ stack-map _ tr-map _ val->bits))
+    _)
    (for/fold ([successor-state-set (set)]
               [config config])
        ([successor-term (in-set (pda-term-succs term))]
@@ -68,49 +76,74 @@
 (define/match (abstract-step pred succ-term config)
   [((abstract-state: pred-term pred-in _ _ _)
     _
-    (configuration: config-re _ stack-map _ tr-map _ val->bits))
+    ;; TODO: Racket bug? These give an error about an unbound identifier on pred-term
+    ;; (configuration: (hash-table (pred-term pred-re)) _
+    ;;                 (hash-table (pred-term pred-st)) _
+    ;;                 (hash-table (perd-term pred-tr)) _
+    ;;                 val->bits)
+    (configuration: re-hash _
+                    st-hash _
+                    tr-hash _
+                    val->bits))
+
+   (define pred-re (hash-ref re-hash pred-term))
+   (define pred-st (hash-ref st-hash pred-term))
+   (define pred-tr (hash-ref tr-hash pred-term))
 
    ;; we use the predecessor tr and re because we don't have any recursive
    ;; binding, all free variables refer to bindings from predecssor terms
    (define eval-prhs (curry eval-pure-rhs
-                            (env-get (configuration-tr-map config) pred)
-                            (configuration-re config)
+                            pred-tr
+                            pred-re
                             val->bits))
 
+   (define (config-step/re config)
+     (config/re-join config succ-term pred-re))
    (define (config-step/stack config)
-     (config/update-st config succ-term (env-get stack-map pred-term)))
+     (config/update-st config succ-term pred-st))
    (define (config-step/tr config)
-     (config/update-tr config succ-term (env-get tr-map pred-term)))
-   (define config-step/stack&tr (compose config-step/stack config-step/tr))
+     (config/update-tr config succ-term pred-tr))
+   (define config-step/stack&re
+     (compose config-step/stack config-step/re))
+   (define config-step/stack-tr-re
+     (compose config-step/stack config-step/tr config-step/re))
 
    ;; note that we capture the binding of succ-term in in+config
    (define (in+config in config)
      (values (stamped-state succ-term in config) config))
+   ;; usually we want to step the stack, re, and tr from pred to succ
+   (define (in+config/default-step in config)
+     (in+config in (config-step/stack-tr-re config)))
 
    (match (pda-term-insn pred-term)
      [(assign _ var prhs)
-      (in+config pred-in (config/re-set (config-step/stack&tr config)
-                                        var
-                                        (eval-prhs prhs)))]
+      (in+config/default-step pred-in
+                              (config/re-set config
+                                             var
+                                             (eval-prhs prhs)))]
      [(state-case _ var looks cnsqs)
+      ;; NB here we don't use the default-step because we'd like to "refine" the
+      ;; binding for var. in+config/default-step would join the predecessor's
+      ;; register environment afterwards, thus muddling the refined value.
       (in+config pred-in
-                 (config/re-set (config-step/stack&tr config)
-                                var
-                                (avalue-meet (possible-lookahead looks
-                                                                 cnsqs
-                                                                 succ-term
-                                                                 val->bits)
-                                             (env-get config-re var))))]
+                 (config/re-refine (config-step/stack-tr-re config)
+                                   succ-term
+                                   var
+                                   (possible-lookahead looks
+                                                       cnsqs
+                                                       succ-term
+                                                       val->bits)))]
      [(sem-act _ name in-vars out-vars action)
       (when (not (= (length out-vars) 1))
         (warn 'sem-act
               "currently, sem-acts with anything but exactly one argument are "
               "not supported; all arguments after the first will be ignored"))
-      (in+config pred-in
-                 (config/re-set (config-step/stack&tr config)
-                                (first out-vars)
-                                (value->avalue (pda-term-insn pred-term)
-                                               val->bits)))]
+      (in+config/default-step pred-in
+                              (config/re-set config
+                                             succ-term
+                                             (first out-vars)
+                                             (value->avalue (pda-term-insn pred-term)
+                                                            val->bits)))]
      [(go _ go-target args)
       (unless (join-point? (pda-term-insn succ-term))
         (error 'go
@@ -122,43 +155,43 @@
                (string-append "this, ~a, go form's target label, ~a, doesn't "
                               "match this join-point, ~a, form's label, ~a")
                pred-term go-target succ-term join-target))
-      (in+config pred-in
-                 (config/re-set/list (config-step/stack&tr config)
-                                     params
-                                     (map eval-prhs args)))]
+      (in+config/default-step pred-in
+                              (config/re-set/list config
+                                                  succ-term
+                                                  params
+                                                  (map eval-prhs args)))]
      [(token-case _ looks cnsqs)
       ;; Here we update the token register to the predeceessors tr met with the
       ;; lookahead for this consequent, (pred-tr ⊓ look-tr)
-      (let* ((pred-tr (env-get tr-map pred-term))
-             (lookahead (possible-lookahead looks cnsqs succ-term val->bits))
+      (let* ((lookahead (possible-lookahead looks cnsqs succ-term val->bits))
              (new-tr (avalue-meet pred-tr lookahead)))
         (in+config pred-in
-                   (config/update-tr (config-step/stack config)
+                   (config/update-tr (config-step/stack&re config)
                                      succ-term
                                      new-tr)))]
      [(push _ prhs)
       ;; Here we overwrite the stack which is above joined with the
       ;; predecessor's stack. We set it to the join of what was previously there
       ;; with the new stack that we learned about from this push.
-      (in+config pred-in
-                 (config/update-st (config-step/stack&tr config)
-                                   succ-term
-                                   (eval-prhs prhs)))]
+      (in+config/default-step pred-in
+                              (config/update-st config
+                                                succ-term
+                                                (eval-prhs prhs)))]
      [(drop-token _)
-      (in+config unknown-input (config-step/stack&tr config))]
+      (in+config/default-step unknown-input config)]
      [(get-token _)
-      (in+config pred-in
-                 (config/update-tr (config-step/stack&tr config)
-                                   succ-term
-                                   avalue-top))]
+      (in+config/default-step pred-in
+                              (config/update-tr config
+                                                succ-term
+                                                avalue-top))]
      [(if-eos _ cnsq altr)
-      (in+config (if (eq? succ-term cnsq) empty-input non-empty-input)
-                 (config-step/stack&tr config))]
+      (in+config/default-step (if (eq? succ-term cnsq)
+                                  empty-input
+                                  non-empty-input)
+                              config)]
      [(reject _)
       (error 'reject "reject should have no succesors, has ~a" succ-term)]
-     [_ (in+config pred-in (config-step/stack&tr config))])])
-
-(define avalue-meet (lattice-meet avalue-bounded-lattice))
+     [_ (in+config/default-step pred-in config)])])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Some shorthands for configuration stuff
@@ -166,11 +199,15 @@
   (make-abstract-state term in
                        (configuration:stack-time config term)
                        (configuration:tr-time config term)
-                       (configuration-re-time config)))
-(define (config/re-set c reg val)
-  (configuration:update-re c reg val))
-(define (config/re-set/list c regs vals)
-  (configuration:update-re/list c regs vals))
+                       (configuration:re-time config term)))
+(define (config/re-set c term reg val)
+  (configuration:env-set c term reg val))
+(define (config/re-refine c term reg val)
+  (configuration:env-refine c term reg val))
+(define (config/re-set/list c term regs vals)
+  (configuration:env-set/list c term regs vals))
+(define (config/re-join c term re)
+  (configuration:join-env c term re))
 (define (config/update-tr c succ-term new-tr)
   (configuration:update-tr-map c succ-term new-tr))
 (define (config/update-st c succ-term new-st)
@@ -200,13 +237,13 @@
    (match curr-term
      ((token-case _ looks cnsqs)
       (let ((l (required-lookahead looks cnsqs succ-term val->bits)))
-        ((lattice-lte? avalue-bounded-lattice) l (env-get tr-map curr-term))))
+        (avalue-lte? l (env-get tr-map curr-term))))
      ((get-token _)
       (non-empty-input? in))
      ((state-case _ var looks cnsqs)
       (let ((l (required-lookahead looks cnsqs succ-term val->bits))
             (aval (env-get re var)))
-        ((lattice-lte? avalue-bounded-lattice) l aval)))
+        (avalue-lte? l aval)))
      (_ #t))])
 
 ;; matching-lookahead : [U [ListOf State] [ListOf Symbol]]
