@@ -3,7 +3,8 @@
 (require "../lattice/lattice.rkt"
          "../racket-utils/singleton-struct.rkt"
          "abstract-value-data.rkt"
-         "abstract-register-environment.rkt")
+         "abstract-register-environment.rkt"
+         "configuration.rkt")
 
 (provide abstract-state-node
          abstract-state-in
@@ -18,7 +19,8 @@
          init-astate
          astate-lattice
          (all-from-out "abstract-register-environment.rkt")
-         (all-from-out "abstract-value-data.rkt"))
+         (all-from-out "abstract-value-data.rkt")
+         (all-from-out "configuration.rkt"))
 
 (define (write-abstract-state t port mode)
   (let ((sexp `(astate ,(abstract-state-node t)
@@ -57,9 +59,9 @@
 ;; An AState is a
 ;;  (abstract-state-constructor [U Term Term*]
 ;;                              AInStream
-;;                              AValue
-;;                              AValue
-;;                              ARegisterEnv
+;;                              ConfigTimeStamp
+;;                              ConfigTimeStamp
+;;                              ConfigTimeStamp
 ;;                              Number
 (struct abstract-state (node in st tr re hash-code)
         #:transparent
@@ -94,15 +96,12 @@
 ;;   - st is the stack
 ;;   - tr is the token register
 ;;   - re is the register environment (besides the token register)
-;;   - le is the label closure environment (all the values in scope when
-;;     the labeled codepoint was created)
-;;   - val->bits is the mapping from values to bits
 (define (init-astate node)
   (make-abstract-state node
                        unknown-input
-                       avalue-bottom
-                       avalue-bottom
-                       empty-env))
+                       (configuration:stack-time init-configuration node)
+                       (configuration:tr-time init-configuration node)
+                       (configuration-re-time init-configuration)))
 
 ;; a LblClosureEnv is a [MutableHash LabelName ARegisterEnv]
 
@@ -119,6 +118,6 @@
   (pointwise-lattice make-abstract-state
     [abstract-state-node pda-term-bounded-lattice]
     [abstract-state-in ainputstream-bounded-lattice]
-    [abstract-state-st avalue-bounded-lattice]
-    [abstract-state-tr avalue-bounded-lattice]
-    [abstract-state-re register-environment-bounded-lattice]))
+    [abstract-state-st configuration-time-stamp-lattice]
+    [abstract-state-tr configuration-time-stamp-lattice]
+    [abstract-state-re configuration-time-stamp-lattice]))

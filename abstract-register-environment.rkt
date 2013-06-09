@@ -2,7 +2,7 @@
 
 (require "../lattice/lattice.rkt"
          "abstract-value-data.rkt")
-(provide env empty-env env-get env-set env-set/list env-set/all-to
+(provide env empty-env env-val-gte? env-get env-set env-set/list env-set/all-to
          register-environment-bounded-lattice
          register-environment-top
          register-environment-top?
@@ -11,17 +11,20 @@
 (module+ test (require rackunit))
 
 (define avalue-join (lattice-join avalue-bounded-lattice))
+(define avalue-gte? (lattice-gte? avalue-bounded-lattice))
 
-;; an ARegisterEnv is a [Hash Any AValue]
+;; an [AEnv K] is a [Hash K AValue]
 (define env hash)
 (define empty-env (hash))
-(define (env-get env key [default (lambda ()
-                                    (error 'env-get
-                                           "key ~a, not found in environment\n  ~a"
-                                           key env))])
-  (dict-ref env key default))
+;; env-val-gte? : [AEnv K] K AValue -> Boolean
+;;
+;; Determines if the value bound for k is gte? than the value provided.
+(define (env-val-gte? env k new-v)
+  (avalue-gte? (env-get env k) new-v))
+(define (env-get env key)
+  (dict-ref env key avalue-bottom))
 (define (env-set env register new-avalue)
-  (let ((existing-avalue (env-get env register avalue-bottom)))
+  (let ((existing-avalue (env-get env register)))
     (dict-set env register (avalue-join existing-avalue new-avalue))))
 (define (env-set/list env vars vals)
   (for/fold ([env env])
