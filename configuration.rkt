@@ -72,7 +72,7 @@
 
 (define (configuration:env-refine c term reg v)
   (define (new-info? re)
-    (not (env-val-gte? re reg v)))
+    (not (env-val-lte? re reg v)))
   (define (updater re)
     (env-refine re reg v))
 

@@ -2,7 +2,7 @@
 
 (require "../lattice/lattice.rkt"
          "abstract-value-data.rkt")
-(provide env empty-env env-val-gte? env-get
+(provide env empty-env env-val-gte? env-val-lte? env-get
          env-set env-refine env-set/list env-set/all-to
          register-environment-bounded-lattice
          register-environment-top
@@ -14,6 +14,7 @@
 (define avalue-join (lattice-join avalue-bounded-lattice))
 (define avalue-meet (lattice-meet avalue-bounded-lattice))
 (define avalue-gte? (lattice-gte? avalue-bounded-lattice))
+(define avalue-lte? (lattice-lte? avalue-bounded-lattice))
 
 ;; an [AEnv K] is a [Hash K AValue]
 (define env hash)
@@ -23,6 +24,11 @@
 ;; Determines if the value bound for k is gte? than the value provided.
 (define (env-val-gte? env k new-v)
   (avalue-gte? (env-get env k) new-v))
+;; env-val-lte? : [AEnv K] K AValue -> Boolean
+;;
+;; Determines if the value bound for k is lte? than the value provided.
+(define (env-val-lte? env k new-v)
+  (avalue-lte? (env-get env k) new-v))
 (define (env-get env key)
   (dict-ref env key avalue-bottom))
 (define (env-set env register new-avalue)
