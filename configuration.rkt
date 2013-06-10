@@ -96,7 +96,7 @@
   (configuration:update-re-map c new-info? updater term))
 
 (define reg-env-join (lattice-join register-environment-bounded-lattice))
-(define reg-env-gte? (lattice-join register-environment-bounded-lattice))
+(define reg-env-gte? (lattice-gte? register-environment-bounded-lattice))
 
 (define (configuration:update-re-map c new-info? updater term)
   (let ((re-map (configuration-re-map c))
