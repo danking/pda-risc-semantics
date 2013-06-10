@@ -89,7 +89,7 @@
 
 (define (configuration:join-env c term new-re)
   (define (new-info? re)
-    (reg-env-gte? new-re re))
+    (not (reg-env-gte? re new-re)))
   (define (updater re)
     (reg-env-join new-re re))
 
