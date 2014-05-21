@@ -119,6 +119,7 @@
      [(assign _ var prhs)
       (in+config/default-step pred-in
                               (config/re-set config
+                                             succ-term
                                              var
                                              (eval-prhs prhs)))]
      [(state-case _ var looks cnsqs)
