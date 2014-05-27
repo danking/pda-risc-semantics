@@ -50,8 +50,8 @@
     (configuration: _ _ stack-map _ tr-map _ _))
    (match-define (assign _ var _) (pda-term-insn pop-term))
 
-   (let ((new-stack (hash-ref stack-map push-term))
-         (pred-tr (hash-ref tr-map push-term)))
+   (let ((new-stack (dict-ref stack-map push-term))
+         (pred-tr (dict-ref tr-map push-term)))
      (for/fold ((succ-states (set))
                 (config config))
          ((succ-term (in-set (pda-term-succs pop-term))))
@@ -86,9 +86,9 @@
                     tr-hash _
                     val->bits))
 
-   (define pred-re (hash-ref re-hash pred-term))
-   (define pred-st (hash-ref st-hash pred-term))
-   (define pred-tr (hash-ref tr-hash pred-term))
+   (define pred-re (dict-ref re-hash pred-term))
+   (define pred-st (dict-ref st-hash pred-term))
+   (define pred-tr (dict-ref tr-hash pred-term))
 
    ;; we use the predecessor tr and re because we don't have any recursive
    ;; binding, all free variables refer to bindings from predecssor terms
