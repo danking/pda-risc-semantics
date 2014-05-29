@@ -46,14 +46,17 @@
 
 (define increment-time add1)
 (define initial-time 0)
-(define (increment-time/hash time-hash term)
-  (dict-set time-hash term (add1 (dict-ref time-hash term initial-time))))
+(define (increment-time/hash! time-hash term)
+  (hash-set! time-hash term (add1 (hash-ref time-hash term initial-time))))
+
+(define-syntax-rule (mutable-hash (x y) ...)
+  (make-hash `((,x . ,y) ...)))
 
 (define (init-configuration node)
-  (configuration (hash node empty-env) (hash node initial-time)
-                 (hash node avalue-bottom) (hash node initial-time)
-                 (hash node avalue-bottom) (hash node initial-time)
-                 (make-hash '((#f . 1)))))
+  (configuration (mutable-hash (node empty-env))     (mutable-hash (node initial-time))
+                 (mutable-hash (node avalue-bottom)) (mutable-hash (node initial-time))
+                 (mutable-hash (node avalue-bottom)) (mutable-hash (node initial-time))
+                 (mutable-hash (#f 1))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Register Environment
@@ -101,15 +104,11 @@
 (define (configuration:update-re-map c new-info? updater term)
   (let ((re-map (configuration-re-map c))
         (re-time (configuration-re-time c)))
-   (if (or (not (dict-has-key? re-map term))
-           (new-info? (dict-ref re-map term)))
-       (configuration:fset-re-map c
-                                  (dict-set re-map
-                                            term
-                                            (updater (dict-ref re-map
-                                                               term
-                                                               empty-env)))
-                                  (increment-time/hash re-time term))
+   (if (or (not (hash-has-key? re-map term))
+           (new-info? (hash-ref re-map term)))
+       (begin (increment-time/hash! re-time term)
+              (hash-set! re-map term (updater (hash-ref re-map term empty-env)))
+              c)
        c)))
 (define/match (configuration:fset-re-map c re-map re-time)
   [((configuration: _ _
@@ -123,7 +122,7 @@
                   val->bits)])
 
 (define (configuration:re-time c k)
-  (dict-ref (configuration-re-time c) k initial-time))
+  (hash-ref (configuration-re-time c) k initial-time))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Stacks
@@ -131,12 +130,12 @@
 (define (configuration:update-stack-map c k v)
   (let ((stack-map (configuration-stack-map c))
         (stack-time (configuration-stack-time c)))
-    (if (and (dict-has-key? stack-map k)
+    (if (and (hash-has-key? stack-map k)
              (env-val-gte? stack-map k v))
         c
-        (configuration:fset-stack-map c
-                                      (env-set stack-map k v)
-                                      (increment-time/hash stack-time k)))))
+        (begin (increment-time/hash! stack-time k)
+               (hash-set! stack-map k v)
+               c))))
 (define/match (configuration:fset-stack-map c stack-map stack-time)
   [((configuration: re-map re-time
                     _ _
@@ -148,7 +147,7 @@
                   tr-map tr-time
                   val->bits)])
 (define (configuration:stack-time c k)
-  (dict-ref (configuration-stack-time c) k initial-time))
+  (hash-ref (configuration-stack-time c) k initial-time))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Token Registers
@@ -156,12 +155,12 @@
 (define (configuration:update-tr-map c k v)
   (let ((tr-map (configuration-tr-map c))
         (tr-time (configuration-tr-time c)))
-    (if (and (dict-has-key? tr-map k)
+    (if (and (hash-has-key? tr-map k)
              (env-val-gte? tr-map k v))
         c
-        (configuration:fset-tr-map c
-                                   (env-set tr-map k v)
-                                   (increment-time/hash tr-time k)))))
+        (begin (increment-time/hash! tr-time k)
+               (hash-set! tr-map k v)
+               c))))
 (define/match (configuration:fset-tr-map c tr-map tr-time)
   [((configuration: re-map re-time
                     stack-map stack-time
@@ -173,7 +172,7 @@
                   tr-map tr-time
                   val->bits)])
 (define (configuration:tr-time c k)
-  (dict-ref (configuration-tr-time c) k initial-time))
+  (hash-ref (configuration-tr-time c) k initial-time))
 (define/match (configuration:fset-val->bits c val->bits)
   [((configuration: re-map re-time
                     stack-map stack-time
