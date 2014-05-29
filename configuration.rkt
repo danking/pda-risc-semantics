@@ -94,7 +94,7 @@
   (define (new-info? re)
     (not (reg-env-gte? re new-re)))
   (define (updater re)
-    (reg-env-join new-re re))
+    (reg-env-join re new-re))
 
   (configuration:update-re-map c new-info? updater term))
 
