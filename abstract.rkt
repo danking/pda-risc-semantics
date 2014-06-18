@@ -26,6 +26,11 @@
 
 ;; A GInsn is [U Insn Insn*]
 
+;; A [FlowFunction T Stack State] is either
+;;  - a (Stack State -> [SetOf [Pair T State]]), or
+;;  - a (State -> [SetOf [Pair T State]])
+
+;; compute-flow-function : Term -> [FlowFunction Term AStack AState]
 (define (compute-flow-function t)
   (if (pop-assign-term? t)
       (successor-states/new-stack t)
@@ -33,9 +38,7 @@
 
 ;; successor-states/new-stack : Term
 ;;                              ->
-;;                              AStack AState
-;;                              ->
-;;                              [SetOf AState]
+;;                              [FlowFunction Term AStack AState]
 ;;
 (define (successor-states/new-stack pop-term)
   (match-define (assign _ var _) (pda-term-insn pop-term))
@@ -60,8 +63,10 @@
     ((curr-token _) tr)
     ((register _ uid _ _) (env-get re rhs))))
 
-
-;; successor-states : Term -> AState -> [SetOf [Pair Term AState]]
+;; successor-states : Term
+;;                    ->
+;;                    [FlowFunction Term AStack AState]
+;;
 (define (successor-states term)
   (define succ-terms (pda-term-succs term))
   (define insn (pda-term-insn term))
