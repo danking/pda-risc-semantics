@@ -9,7 +9,7 @@
 
 (define (flow-state->sexp fs)
   (match fs
-    [(flow-state (abstract-state: node1 _ _ _ _ _) flow-value)
+    [(flow-state node1 (abstract-state: _ _ _ _ _) flow-value)
      (let ((node-sexp (unparse node1)))
        (list (first node-sexp)
              flow-value

@@ -17,8 +17,8 @@
 (define avalue-lte? (lattice-lte? avalue-bounded-lattice))
 
 ;; an [AEnv K] is a [Hash K AValue]
-(define env make-hash)
-(define empty-env (make-hash))
+(define env hash)
+(define empty-env (hash))
 ;; env-val-gte? : [AEnv K] K AValue -> Boolean
 ;;
 ;; Determines if the value bound for k is gte? than the value provided.
@@ -33,16 +33,10 @@
   (dict-ref env key avalue-bottom))
 (define (env-set env register new-avalue)
   (let ((existing-avalue (env-get env register)))
-    (if (register-environment-top? env)
-        (dict-set env register (avalue-join existing-avalue new-avalue))
-        (begin (hash-set! env register (avalue-join existing-avalue new-avalue))
-               env))))
+    (dict-set env register (avalue-join existing-avalue new-avalue))))
 (define (env-refine env register new-avalue)
   (let ((existing-avalue (env-get env register)))
-    (if (register-environment-top? env)
-        (dict-set env register (avalue-meet existing-avalue new-avalue))
-        (begin (hash-set! env register (avalue-meet existing-avalue new-avalue))
-               env))))
+    (dict-set env register (avalue-meet existing-avalue new-avalue))))
 (define (env-set/list env vars vals)
   (for/fold ([env env])
       ([var vars]

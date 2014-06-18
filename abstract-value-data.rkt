@@ -62,24 +62,15 @@
 ;;
 ;; an AValue is a [SetOf Value]
 ;;
-;; value->avalue : Value [MutableHash Value Natural] -> AValue
-(define (value->avalue v val->bits)
-  (define (get-val-bit-rep v)
-    (let ((bits? (hash-ref val->bits v #f)))
-      (if bits?
-          bits?
-          (let* ((new-bits (hash-ref val->bits #f)))
-            (hash-set! val->bits v new-bits)
-            (hash-set! val->bits #f (arithmetic-shift new-bits 1))
-            new-bits))))
-
+;; value->avalue : Value -> AValue
+(define (value->avalue v)
   (cond [(state? v)
-         (get-val-bit-rep (syntax->datum (state-id v)))]
+         (set (syntax->datum (state-id v)))]
         [(syntax? v) ;; v is a token from a token-case term
-         (get-val-bit-rep (syntax->datum v))]
+         (set (syntax->datum v))]
         [(sem-act? v)
-         (get-val-bit-rep (syntax->datum (sem-act-name v)))]
-        [else (get-val-bit-rep v)]))
+         (set (syntax->datum (sem-act-name v)))]
+        [else (set v)]))
 
 ;; avalue->value-set : AValue [MutableHash Value Natural] -> [SetOf Value]
 ;;
@@ -150,11 +141,11 @@
 ;; equality predicate).
 (define (unimplemented args ...)
   (error 'unimplemented ""))
-(define set-union bitwise-ior)
+;; (define set-union bitwise-ior)
 (define (superset? x y) (subset? y x))
-(define set-intersect bitwise-and)
-(define (subset? x y)
-  (eq? 0 (bitwise-and x (bitwise-not y))))
+;; (define set-intersect bitwise-and)
+;; (define (subset? x y)
+;;   (eq? 0 (bitwise-and x (bitwise-not y))))
 (define avalue-bounded-lattice
   (make-bounded-lattice/with-top&bottom (lattice set-union
                                                  superset?

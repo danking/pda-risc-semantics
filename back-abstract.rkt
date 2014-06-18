@@ -12,5 +12,5 @@
 ;; be developed further.
 (define abstract-backstep
   (match-lambda
-    ((abstract-state (pda-term preds _ _ _ insn) in st tr re le)
-     (for/seteq ([pred preds]) (abstract-state pred in st tr re le)))))
+    ((abstract-state: (pda-term preds _ _ _ insn) in st tr re)
+     (for/seteq ([pred preds]) (make-abstract-state pred in st tr re)))))
