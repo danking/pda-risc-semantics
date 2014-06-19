@@ -8,12 +8,27 @@
          ConfigMonad-bind
          ConfigMonad-return
          ConfigMonad-creator
-         ConfigMonad-accessor)
+         ConfigMonad-accessor
+         ;; monadic actions
+         val->bits)
 
 ;; a [ConfigMonad X] is a [StateMonad Configuration X]
-(struct monadic-configuration (val->bits))
-(define init-configuration
-  (monadic-configuration (hash)))
+(struct monadic-configuration (val-bit-hash))
+
+(define init-val-bit-hash (make-hash '((#f . 1))))
+;; [ConfigMonad AValue]
+(define (val->bits v)
+  (ConfigMonad-creator
+   (lambda (config)
+     (match-define (monadic-configuration bit-hash) config)
+
+     (let ((maybe-bits (hash-ref bit-hash v #f)))
+       (if maybe-bits
+           (values maybe-bits config)
+           (let* ((new-bits (hash-ref bit-hash #f)))
+             (hash-set! bit-hash v new-bits)
+             (hash-set! bit-hash #f (arithmetic-shift new-bits 1))
+             (values new-bits config)))))))
 
 ;; [ConfigMonad X] -> [Values X Configuration]
 (define (run-config-monad c)
@@ -35,3 +50,6 @@
 
 (define ConfigMonad-creator StateMonad)
 (define ConfigMonad-accessor StateMonad-p)
+
+(define init-configuration
+  (monadic-configuration init-val-bit-hash))
