@@ -3,7 +3,11 @@
 (require "../lattice/lattice.rkt"
          "abstract-value-data.rkt")
 (provide env empty-env env-val-gte? env-val-lte? env-get
-         env-set env-refine env-set/list env-set/all-to
+         env-refine
+         env-set/all-to
+         (contract-out [env-set (-> any/c any/c avalue/c any/c)]
+                       [env-set/list (-> any/c any/c (listof avalue/c) any/c)])
+         regenv?
          register-environment-bounded-lattice
          register-environment-top
          register-environment-top?
@@ -57,3 +61,6 @@
    register-environment-bottom
    register-environment-bottom?)
   (make-bounded-dictionary-lattice avalue-bounded-lattice))
+
+(define (regenv? x)
+  (or (dict? x) (register-environment-bottom? x) (register-environment-top? x)))

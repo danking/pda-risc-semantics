@@ -9,7 +9,8 @@
          abstract-state-st
          abstract-state-tr
          abstract-state-re
-         make-abstract-state
+         (contract-out
+          [make-abstract-state (-> ainstream? avalue/c avalue/c regenv? any/c)])
          abstract-state:
          unknown-input unknown-input?
          non-empty-input non-empty-input?
@@ -50,6 +51,9 @@
 (singleton-struct unknown-input)
 (singleton-struct non-empty-input)
 (singleton-struct empty-input)
+(define (ainstream? x) (or (unknown-input? x)
+                           (non-empty-input? x)
+                           (empty-input? x)))
 
 ;; An AState is a
 ;;  (abstract-state-constructor AInStream

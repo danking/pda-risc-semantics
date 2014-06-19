@@ -8,9 +8,11 @@
                   state?
                   sem-act?
                   sem-act-name
-                  sem-act-retvars))
+                  sem-act-retvars
+                  nterm?
+                  curr-token?))
 (provide avalue-bounded-lattice
-         avalue-top avalue-top? avalue?
+         avalue-top avalue-top? avalue? avalue/c
          avalue-bottom avalue-bottom?
          ;; hack around pda-risc-enh confusion
          (struct-out state-value)
@@ -71,6 +73,8 @@
         [(sem-act? v)
          (set (syntax->datum (sem-act-name v)))]
         [else (set v)]))
+(define (value? x)
+  (or (symbol? x) (nterm? x) (curr-token? x)))
 
 ;; avalue->value-set : AValue [MutableHash Value Natural] -> [SetOf Value]
 ;;
@@ -127,12 +131,16 @@
 
 (singleton-struct avalue-top #:transparent)
 
-(define avalue-bottom 0)
+(define avalue-bottom ;; 0
+  (set))
 (define (avalue-bottom? x)
-  (and (number? x) (zero? x)))
+  ;; (and (number? x) (zero? x))
+  (and (set? x) (set-empty? x)))
 
 (define (avalue? x)
-  (or (number? x) (avalue-top? x)))
+  ;; (or (number? x) (avalue-top? x))
+  (or (set? x) (avalue-bottom? x) (avalue-top? x)))
+(define avalue/c (or/c (set/c value?) avalue-top? avalue-bottom?))
 
 ;; [Bounded-Lattice AValue]
 ;;
