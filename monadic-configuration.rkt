@@ -10,32 +10,11 @@
          ConfigMonad-creator
          ConfigMonad-accessor
          ;; monadic actions
-         val->bits)
+         val->bits
+         register-count)
 
 ;; a [ConfigMonad X] is a [StateMonad Configuration X]
-(struct monadic-configuration (val-bit-hash))
-
-(define init-val-bit-hash (make-hash '((#f . 1))))
-;; [ConfigMonad AValue]
-(define (val->bits v)
-  (ConfigMonad-creator
-   (lambda (config)
-     (match-define (monadic-configuration bit-hash) config)
-
-     (let ((maybe-bits (hash-ref bit-hash v #f)))
-       (if maybe-bits
-           (values maybe-bits config)
-           (let* ((new-bits (hash-ref bit-hash #f)))
-             (hash-set! bit-hash v new-bits)
-             (hash-set! bit-hash #f (arithmetic-shift new-bits 1))
-             (values new-bits config)))))))
-
-;; [ConfigMonad X] -> [Values X Configuration]
-(define (run-config-monad c)
-  ((ConfigMonad-accessor c) init-configuration))
-
-(define (run-config-monad* config c)
-  ((ConfigMonad-accessor c) config))
+(struct monadic-configuration (val-bit-hash register-count))
 
 ;; ConfigMonad-bind :: [ConfigMonad A] -> (A -> [ConfigMonad B]) -> [ConfigMonad B]
 (define ((ConfigMonad-bind command) f)
@@ -51,5 +30,33 @@
 (define ConfigMonad-creator StateMonad)
 (define ConfigMonad-accessor StateMonad-p)
 
-(define init-configuration
-  (monadic-configuration init-val-bit-hash))
+(define init-val-bit-hash (make-hash '((#f . 1))))
+;; [ConfigMonad AValue]
+(define (val->bits v)
+  (ConfigMonad-creator
+   (lambda (config)
+     (match-define (monadic-configuration bit-hash _) config)
+
+     (let ((maybe-bits (hash-ref bit-hash v #f)))
+       (if maybe-bits
+           (values maybe-bits config)
+           (let* ((new-bits (hash-ref bit-hash #f)))
+             (hash-set! bit-hash v new-bits)
+             (hash-set! bit-hash #f (arithmetic-shift new-bits 1))
+             (values new-bits config)))))))
+
+;; [ConfigMonad Natural]
+(define register-count
+  (ConfigMonad-creator
+   (lambda (config)
+     (values (monadic-configuration-register-count config) config))))
+
+;; [ConfigMonad X] -> [Values X Configuration]
+(define (run-config-monad c)
+  ((ConfigMonad-accessor c) init-configuration))
+
+(define (run-config-monad* config c)
+  ((ConfigMonad-accessor c) config))
+
+(define (init-configuration register-count)
+  (monadic-configuration init-val-bit-hash register-count))

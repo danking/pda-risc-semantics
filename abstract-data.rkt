@@ -92,8 +92,8 @@
   (abstract-state-constructor in st tr re
                               (compute-astate-hash-code in st tr re)))
 
-(define init-astate
-  (make-abstract-state unknown-input avalue-bottom avalue-bottom (hash)))
+(define (init-astate register-count)
+  (make-abstract-state unknown-input avalue-bottom avalue-bottom (empty-env register-count)))
 
 ;; a LblClosureEnv is a [MutableHash LabelName ARegisterEnv]
 

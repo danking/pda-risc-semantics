@@ -9,8 +9,8 @@
 ;; a FlowState is a (make-flow-state [U Term Term*] AState FlowValue)
 (struct flow-state (node astate flow-value) #:transparent)
 
-(define (initial-flow-state initial-node initial-fv)
-  (flow-state initial-node init-astate initial-fv))
+(define (initial-flow-state initial-node initial-fv register-count)
+  (flow-state initial-node (init-astate register-count) initial-fv))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

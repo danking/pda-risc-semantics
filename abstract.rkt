@@ -128,9 +128,10 @@
                 term go-target succ-term join-target)))
      (return
       (flow-function
-       (~>~ ((values (mapM (curry eval-pure-rhs tr re) args)))
+       (~>~ ((values (mapM (curry eval-pure-rhs tr re) args))
+             (N register-count))
          (for/set~>~ ([succ-term succ-terms])
-           (~> ((new-re (return (env-set/list empty-env
+           (~> ((new-re (return (env-set/list (empty-env N)
                                               (join-point-params
                                                (pda-term-insn succ-term))
                                               values))))
