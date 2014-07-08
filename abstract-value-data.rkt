@@ -2,8 +2,7 @@
 
 (require "../lattice/lattice.rkt"
          "../racket-utils/singleton-struct.rkt"
-         (only-in "monadic-configuration.rkt"
-                  val->bits)
+         "monadic-configuration-val-bits.rkt"
          ;; hack around pda-risc-enh confusion
          (only-in "../pda-to-pda-risc/risc-enhanced/data.rkt"
                   state-id

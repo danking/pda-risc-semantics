@@ -3,6 +3,7 @@
          "../lattice/lattice.rkt"
          "../pda-to-pda-risc/risc-enhanced/data.rkt"
          "monadic-configuration.rkt"
+         "monadic-configuration-environment.rkt"
          (prefix-in monad: "monads.rkt")
          (for-syntax racket
                      racket/syntax
@@ -13,9 +14,9 @@
          successor-states/new-stack
          init-astate
          abstract-state-in
-         abstract-state-re
          abstract-state-st
          abstract-state-tr
+         abstract-state-re
          abstract-state:
          astate-lattice)
 
@@ -61,23 +62,24 @@
 
   (define (flow new-stack old-state)
     (match-define (abstract-state: in st tr re) old-state)
-    (~> ((new-re (return (env-set re var st))))
+    (~> ((_ (env-set var st))
+         (new-re environment-ts-get))
       (for/set ([succ-term succ-terms])
         (list succ-term
               (make-abstract-state in new-stack tr new-re)))))
 
   (return flow))
 
-;; eval-pure-rhs : AValue RegisterEnv Pure-Rhs -> [ConfigMonad AValue]
+;; eval-pure-rhs : AValue Pure-Rhs -> [ConfigMonad AValue]
 ;;
-(define (eval-pure-rhs tr re rhs)
+(define (eval-pure-rhs tr rhs)
   (match rhs
     ((state id)
      (value->avalue rhs))
     ((nterm id)
      (value->avalue rhs))
     ((curr-token _) (return tr))
-    ((register _ uid _ _) (return (env-get re rhs)))))
+    ((register _ uid _ _) (env-get rhs))))
 
 ;; successor-states : Term
 ;;                    ->
@@ -91,8 +93,9 @@
     [(assign _ var prhs)
      (return
       (flow-function
-       (~> ((value (eval-pure-rhs tr re prhs))
-            (new-re (return (env-set re var value))))
+       (~> ((value (eval-pure-rhs tr prhs))
+            (_ (env-set var value))
+            (new-re environment-ts-get))
          (for/set ([succ-term succ-terms])
            (list succ-term (make-abstract-state in st tr new-re))))))]
     [(state-case _ var looks cnsqs)
@@ -101,7 +104,8 @@
                                 (list succ-term lookahead)))))
        (flow-function
         (for/set~>~ ([s+l succ-terms+looks])
-          (~> ((new-re (return (env-refine re var (second s+l)))))
+          (~> ((_ (env-refine var (second s+l)))
+               (new-re environment-ts-get))
             (list (first s+l) (make-abstract-state in st tr new-re))))))]
     [(sem-act _ name in-vars out-vars action)
      (when (not (= (length out-vars) 1))
@@ -111,7 +115,8 @@
      (return
       (flow-function
        (~> ((aval (value->avalue insn))
-            (new-re (return (env-set re (first out-vars) aval))))
+            (_ (env-set (first out-vars) aval))
+            (new-re environment-ts-get))
          (for/set ([succ-term succ-terms])
            (list succ-term (make-abstract-state in st tr new-re))))))]
     [(go _ go-target args)
@@ -128,13 +133,12 @@
                 term go-target succ-term join-target)))
      (return
       (flow-function
-       (~>~ ((values (mapM (curry eval-pure-rhs tr re) args))
-             (N register-count))
+       (~>~ ((values (mapM (curry eval-pure-rhs tr) args)))
          (for/set~>~ ([succ-term succ-terms])
-           (~> ((new-re (return (env-set/list (empty-env N)
-                                              (join-point-params
-                                               (pda-term-insn succ-term))
-                                              values))))
+           (~> ((_ (env-set/list (join-point-params
+                                  (pda-term-insn succ-term))
+                                 values))
+                (new-re environment-ts-get))
              (list succ-term (make-abstract-state in st tr new-re)))))))]
     [(token-case _ looks cnsqs)
      ;; Here we update the token register to the predeceessors tr met with the
@@ -143,31 +147,32 @@
                               (~> ((lookahead (possible-lookahead looks cnsqs succ-term)))
                                 (list succ-term lookahead)))))
        (flow-function
-        (return
-         (for/set ([s+l succ-terms+looks])
-           (list (first s+l)
-                 (make-abstract-state in st (avalue-meet tr (second s+l)) re))))))]
+        (~> ((new-re environment-ts-get))
+          (for/set ([s+l succ-terms+looks])
+            (list (first s+l)
+                  (make-abstract-state in st (avalue-meet tr (second s+l)) new-re))))))]
     [(push _ prhs)
      ;; Here we overwrite the stack which is above joined with the
      ;; predecessor's stack. We set it to the join of what was previously there
      ;; with the new stack that we learned about from this push.
      (return
       (flow-function
-       (~> ((new-st (eval-pure-rhs tr re prhs)))
+       (~> ((new-st (eval-pure-rhs tr prhs))
+            (new-re environment-ts-get))
          (for/set ([succ-term succ-terms])
-           (list succ-term (make-abstract-state in new-st tr re))))))]
+           (list succ-term (make-abstract-state in new-st tr new-re))))))]
     [(drop-token _)
      (return
       (flow-function
-       (return
-        (for/set ([succ-term succ-terms])
-          (list succ-term (make-abstract-state unknown-input st tr re))))))]
+       (~> ((new-re environment-ts-get))
+         (for/set ([succ-term succ-terms])
+           (list succ-term (make-abstract-state unknown-input st tr new-re))))))]
     [(get-token _)
      (return
       (flow-function
-       (return
+       (~> ((new-re environment-ts-get))
         (for/set ([succ-term succ-terms])
-          (list succ-term (make-abstract-state in st avalue-top re))))))]
+          (list succ-term (make-abstract-state in st avalue-top new-re))))))]
     [(if-eos _ cnsq altr)
      (define succ-terms+new-ins
        (for/list ([succ-term succ-terms])
@@ -177,9 +182,9 @@
                    non-empty-input))))
      (return
       (flow-function
-       (return
+       (~> ((new-re environment-ts-get))
         (for/set ([s+i succ-terms+new-ins])
-          (list (first s+i) (make-abstract-state (second s+i) st tr re))))))]
+          (list (first s+i) (make-abstract-state (second s+i) st tr new-re))))))]
     [(reject _)
      (unless (set-empty? succ-terms)
        (error 'reject "reject should have no succesors, has ~a" succ-terms))
@@ -189,9 +194,9 @@
     [_
      (return
       (flow-function
-       (return
+       (~> ((new-re environment-ts-get))
         (for/set ([succ-term succ-terms])
-          (list succ-term (make-abstract-state in st tr re))))))]))
+          (list succ-term (make-abstract-state in st tr new-re))))))]))
 
 ;; possible-lookahead : [U [ListOf State] [ListOf Symbol]]
 ;;                      [ListOf Term-Seq*]

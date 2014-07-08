@@ -2,18 +2,40 @@
 
 (require "../lattice/lattice.rkt"
          "abstract-value-data.rkt"
-         (only-in "../pda-to-pda-risc/risc-enhanced/data.rkt" register-uid))
+         (only-in "../pda-to-pda-risc/risc-enhanced/data.rkt" register-uid)
+         (prefix-in monad: "monads.rkt")
+         "monadic-configuration-data.rkt"
+         "monadic-configuration-environment.rkt")
 (provide env empty-env env-val-gte? env-val-lte? env-get
          env-refine
          env-set/all-to
-         (contract-out [env-set (-> any/c any/c avalue/c any/c)]
-                       [env-set/list (-> any/c any/c (listof avalue/c) any/c)])
+         (contract-out [env-set (-> any/c avalue/c any/c)]
+                       [env-set/list (-> any/c (listof avalue/c) any/c)])
          regenv?
          register-environment-bounded-lattice
          register-environment-top
          register-environment-top?
          register-environment-bottom
          register-environment-bottom?)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Monad stuff
+
+(monad:instantiate-monad-ops
+ ConfigMonad-bind ConfigMonad-return ConfigMonad-creator ConfigMonad-accessor
+ (~>~ monad:~>~)
+ (~> monad:~>)
+ (for/set~>~ monad:for/set~>~)
+ (for/list~>~ monad:for/list~>~)
+ (for~>~ monad:for~>~)
+ (mapM monad:mapM))
+
+(define-syntax-rule (return x ...) (ConfigMonad-return x ...))
+(define-syntax-rule (bind x ...) (ConfigMonad-bind x ...))
+
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (module+ test (require rackunit))
 
 (define avalue-join (lattice-join avalue-bounded-lattice))
@@ -80,33 +102,50 @@
 (define (register-view r) (sub1 (register-uid r)))
 
 
-;; env-val-gte? : [AEnv K] K AValue -> Boolean
+;; env-val-gte? : K AValue -> [ConfigMonad Boolean]
 ;;
 ;; Determines if the value bound for k is gte? than the value provided.
-(define (env-val-gte? env k new-v)
-  (avalue-gte? (env-get env k) new-v))
-;; env-val-lte? : [AEnv K] K AValue -> Boolean
+(define (env-val-gte? k new-v)
+  (~> ((v (env-get k)))
+    (avalue-gte? v new-v)))
+;; env-val-lte? : K AValue -> [ConfigMonad Boolean]
 ;;
 ;; Determines if the value bound for k is lte? than the value provided.
-(define (env-val-lte? env k new-v)
-  (avalue-lte? (env-get env k) new-v))
-(define (env-get env key)
-  (dict-ref env (register-view key) avalue-bottom))
-(define (env-set env register new-avalue)
-  (let ((existing-avalue (env-get env register)))
-    (dict-set env (register-view register) (avalue-join existing-avalue new-avalue))))
-(define (env-refine env register new-avalue)
-  (let ((existing-avalue (env-get env register)))
-    (dict-set env (register-view register) (avalue-meet existing-avalue new-avalue))))
-(define (env-set/list env vars vals)
-  (for/fold ([env env])
-      ([var vars]
-       [val vals])
-    (env-set env var val)))
-(define (env-set/all-to env vars val)
-  (for/fold ([env env])
-      ([var vars])
-    (env-set env var val)))
+(define (env-val-lte? k new-v)
+  (~> ((v (env-get k)))
+    (avalue-lte? v new-v)))
+;; env-get : Register -> [ConfigMonad AValue]
+(define (env-get key)
+  (~> ((env widened-env-get))
+    (dict-ref env (register-view key) avalue-bottom)))
+;; env-set : Register AValue -> [ConfigMonad Void]
+(define (env-set register new-avalue)
+  (~>~ ((existing-avalue (env-get register))
+        (env widened-env-get))
+    (if (avalue-gte? existing-avalue new-avalue)
+        (return (void))
+        (widened-env-put (dict-set env
+                                   (register-view register)
+                                   (avalue-join existing-avalue new-avalue))))))
+;; env-refine : Register AValue -> [ConfigMonad Void]
+(define (env-refine register new-avalue)
+  ;; we don't refine in time-stamped regenvs
+  (return (void))
+  ;; (~>~ ((existing-avalue (env-get register))
+  ;;       (env widened-env-get))
+  ;;   (widened-env-put (dict-set env
+  ;;                              (register-view register)
+  ;;                              (avalue-meet existing-avalue new-avalue))))
+  )
+;; env-set/list : [Listof Register] [Listof AValue] -> [ConfigMonad Void]
+(define (env-set/list vars vals)
+  (for~>~ ([var vars]
+           [val vals])
+          (env-set var val)))
+;; env-set/all-to : [Listof Register] [Listof AValue] -> [ConfigMonad Void]
+(define (env-set/all-to vars val)
+  (for~>~ ([var vars])
+          (env-set var val)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Register Environment Lattice

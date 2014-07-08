@@ -54,6 +54,18 @@
        (define-values (x new-c) ((accessor body) c))
        (values (cons x ls) new-c)))))
 
+(define-syntax-rule (for~>~ (bind return creator accessor)
+                            (sequences ...)
+                            body)
+  (creator
+   (lambda (config)
+     (for/fold
+         ([v (void)]
+          [c config])
+         (sequences ...)
+       (define-values (ignore new-c) ((accessor body) c))
+       (values (void) new-c)))))
+
 (define-syntax-rule (mapM m f ls)
   (sequence m (map f ls)))
 

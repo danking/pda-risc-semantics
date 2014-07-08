@@ -3,14 +3,15 @@
 (require "../lattice/lattice.rkt"
          "../racket-utils/singleton-struct.rkt"
          "abstract-value-data.rkt"
-         "abstract-register-environment.rkt")
+         "abstract-register-environment.rkt"
+         "time-stamp.rkt")
 
 (provide abstract-state-in
          abstract-state-st
          abstract-state-tr
          abstract-state-re
          (contract-out
-          [make-abstract-state (-> ainstream? avalue/c avalue/c regenv? any/c)])
+          [make-abstract-state (-> ainstream? avalue/c avalue/c time-stamp/c any/c)])
          abstract-state:
          unknown-input unknown-input?
          non-empty-input non-empty-input?
@@ -60,7 +61,8 @@
 ;;                              AValue
 ;;                              AValue
 ;;                              [AEnv Register]
-;;                              Number
+;;                              TimeStamp
+;;                              Number)
 (struct abstract-state (in st tr re hash-code)
         #:transparent
         #:property prop:custom-write write-abstract-state
@@ -92,8 +94,9 @@
   (abstract-state-constructor in st tr re
                               (compute-astate-hash-code in st tr re)))
 
-(define (init-astate register-count)
-  (make-abstract-state unknown-input avalue-bottom avalue-bottom (empty-env register-count)))
+(define init-astate
+  (make-abstract-state unknown-input avalue-bottom avalue-bottom
+                       initial-time-stamp))
 
 ;; a LblClosureEnv is a [MutableHash LabelName ARegisterEnv]
 
@@ -111,4 +114,4 @@
     [abstract-state-in ainputstream-bounded-lattice]
     [abstract-state-st avalue-bounded-lattice]
     [abstract-state-tr avalue-bounded-lattice]
-    [abstract-state-re register-environment-bounded-lattice]))
+    [abstract-state-re time-stamp-bounded-lattice]))
