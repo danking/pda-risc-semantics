@@ -56,6 +56,22 @@
                            (non-empty-input? x)
                            (empty-input? x)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Lattices
+
+(define pda-term-bounded-lattice
+  bounded-flat-equal?-lattice)
+
+(define ainputstream-bounded-lattice
+  bounded-flat-equal?-lattice)
+
+(define astate-lattice
+  (pointwise-lattice make-abstract-state
+    [abstract-state-in ainputstream-bounded-lattice]
+    [abstract-state-st avalue-bounded-lattice]
+    [abstract-state-tr avalue-bounded-lattice]
+    [abstract-state-re time-stamp-bounded-lattice]))
+
 ;; An AState is a
 ;;  (abstract-state-constructor AInStream
 ;;                              AValue
@@ -70,7 +86,14 @@
         [(define equal-proc astate-equal?)
          (define (hash-proc x recur) (abstract-state-hash-code x))
          (define (hash2-proc x recur) (- (abstract-state-hash-code x)))]
-        #:constructor-name abstract-state-constructor)
+        #:constructor-name abstract-state-constructor
+        #:methods gen:gen:join-semi-lattice
+        [(define gte? (lattice-gte? astate-lattice))
+         (define join (lattice-join astate-lattice))]
+        #:methods gen:gen:meet-semi-lattice
+        [(define lte? (lattice-lte? astate-lattice))
+         (define meet (lattice-meet astate-lattice))]
+        )
 ;; where,
 ;;   - in is the input stream
 ;;   - st is the stack
@@ -99,19 +122,3 @@
                        initial-time-stamp))
 
 ;; a LblClosureEnv is a [MutableHash LabelName ARegisterEnv]
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Lattices
-
-(define pda-term-bounded-lattice
-  bounded-flat-equal?-lattice)
-
-(define ainputstream-bounded-lattice
-  bounded-flat-equal?-lattice)
-
-(define astate-lattice
-  (pointwise-lattice make-abstract-state
-    [abstract-state-in ainputstream-bounded-lattice]
-    [abstract-state-st avalue-bounded-lattice]
-    [abstract-state-tr avalue-bounded-lattice]
-    [abstract-state-re time-stamp-bounded-lattice]))
