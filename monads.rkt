@@ -18,15 +18,19 @@
 ;; a [StateMonad S X] is a [StateMonad (S -> [Values X S])]
 (struct StateMonad (p))
 
-(define-syntax-rule (~>~ (bind return creator accessor)
-                         ((binding expr) (binding2 expr2) ...)
-                         body)
-  (creator
-   (lambda (config)
-     (let*-values (((binding c) ((accessor expr) config))
-                   ((binding2 c) ((accessor expr2) c))
-                   ...)
-       ((accessor body) c)))))
+(define-syntax (~>~ stx)
+  (syntax-parse stx
+    [(_ (bind:expr return:expr creator:expr accessor:expr)
+        ((binding:id e:expr) (binding2:id e2:expr) ...)
+        body:expr)
+     (quasisyntax/loc stx
+       (creator
+        (lambda (config)
+          #,(syntax/loc stx
+              (let*-values (((binding c) ((accessor e) config))
+                            ((binding2 c) ((accessor e2) c))
+                            ...)
+                ((accessor body) c))))))]))
 
 (define-syntax-rule (~> (bind return creator accessor)
                       ((binding expr) (binding2 expr2) ...)

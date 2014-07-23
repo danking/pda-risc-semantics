@@ -1,6 +1,7 @@
 #lang racket
 
-(require "monads.rkt")
+(require "monads.rkt"
+         (for-syntax syntax/parse))
 (provide (contract-out
           [struct monadic-configuration
             ((val-bit-hash (hash/c any/c natural-number/c))
@@ -27,9 +28,11 @@
                 (match-define (StateMonad proc2) (f a))
                 (proc2 config))))
 
-(define-syntax-rule (ConfigMonad-return x)
-  (StateMonad (lambda (config) (values x config))))
-
+(define-syntax (ConfigMonad-return stx)
+  (syntax-parse stx
+    [(_ body:expr)
+     #`(StateMonad (lambda (config)
+                     #,(syntax/loc stx (values body config))))]))
 (define ConfigMonad-creator StateMonad)
 (define ConfigMonad-accessor StateMonad-p)
 
