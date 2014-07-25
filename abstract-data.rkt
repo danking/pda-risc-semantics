@@ -6,7 +6,8 @@
          "abstract-register-environment.rkt"
          "time-stamp.rkt")
 
-(provide abstract-state-tr
+(provide abstract-state-gte?
+         abstract-state-tr
          abstract-state-re
          (contract-out
           [make-abstract-state (-> avalue/c time-stamp/c any/c)])
@@ -63,6 +64,8 @@
     [abstract-state-tr avalue-bounded-lattice]
     [abstract-state-re time-stamp-bounded-lattice]))
 
+(define abstract-state-gte? (lattice-gte? astate-lattice))
+
 ;; An AState is a
 ;;  (abstract-state-constructor AInStream
 ;;                              AValue
@@ -79,7 +82,7 @@
          (define (hash2-proc x recur) (- (abstract-state-hash-code x)))]
         #:constructor-name abstract-state-constructor
         #:methods gen:gen:join-semi-lattice
-        [(define gte? (lattice-gte? astate-lattice))
+        [(define gte? abstract-state-gte?)
          (define join (lattice-join astate-lattice))]
         #:methods gen:gen:meet-semi-lattice
         [(define lte? (lattice-lte? astate-lattice))

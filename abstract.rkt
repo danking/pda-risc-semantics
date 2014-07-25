@@ -13,6 +13,7 @@
 
 (provide compute-flow-function
          init-astate
+         abstract-state-gte?
          abstract-state-tr
          abstract-state-re
          abstract-state:
