@@ -6,12 +6,10 @@
          "abstract-register-environment.rkt"
          "time-stamp.rkt")
 
-(provide abstract-state-in
-         abstract-state-st
-         abstract-state-tr
+(provide abstract-state-tr
          abstract-state-re
          (contract-out
-          [make-abstract-state (-> ainstream? avalue/c avalue/c time-stamp/c any/c)])
+          [make-abstract-state (-> avalue/c time-stamp/c any/c)])
          abstract-state:
          unknown-input unknown-input?
          non-empty-input non-empty-input?
@@ -22,9 +20,7 @@
          (all-from-out "abstract-value-data.rkt"))
 
 (define (write-abstract-state t port mode)
-  (let ((sexp `(astate ,(abstract-state-in t)
-                       ,(abstract-state-st t)
-                       ,(abstract-state-tr t)
+  (let ((sexp `(astate ,(abstract-state-tr t)
                        ,(abstract-state-re t))))
     ((if (pretty-printing)
          pretty-print
@@ -38,15 +34,12 @@
 ;; (through the label-name, which links to join-points and go instructions)
 (define astate-equal?
   (match-lambda*
-    [(list (abstract-state: in1 st1 tr1 re1)
-           (abstract-state: in2 st2 tr2 re2)
+    [(list (abstract-state: tr1 re1)
+           (abstract-state: tr2 re2)
            recur)
-     (and (recur in1 in2)
-          (recur st1 st2)
-          (recur tr1 tr2)
-          (recur re1 re2))]))
-(define (compute-astate-hash-code in st tr re)
-  (equal-hash-code (list in st tr re)))
+     (and (recur tr1 tr2) (recur re1 re2))]))
+(define (compute-astate-hash-code tr re)
+  (equal-hash-code (list tr re)))
 
 ;; an AInStream is [U UnknownInput NonEmptyInput EmptyInput]
 (singleton-struct unknown-input)
@@ -67,8 +60,6 @@
 
 (define astate-lattice
   (pointwise-lattice make-abstract-state
-    [abstract-state-in ainputstream-bounded-lattice]
-    [abstract-state-st avalue-bounded-lattice]
     [abstract-state-tr avalue-bounded-lattice]
     [abstract-state-re time-stamp-bounded-lattice]))
 
@@ -79,7 +70,7 @@
 ;;                              [AEnv Register]
 ;;                              TimeStamp
 ;;                              Number)
-(struct abstract-state (in st tr re hash-code)
+(struct abstract-state (tr re hash-code)
         #:transparent
         #:property prop:custom-write write-abstract-state
         #:methods gen:equal+hash
@@ -107,18 +98,14 @@
        #'(? abstract-state?
             (app (lambda (x)
                    (list
-                    (abstract-state-in x)
-                    (abstract-state-st x)
                     (abstract-state-tr x)
                     (abstract-state-re x)))
                  (list elts ...)))])))
 
-(define (make-abstract-state in st tr re)
-  (abstract-state-constructor in st tr re
-                              (compute-astate-hash-code in st tr re)))
+(define (make-abstract-state tr re)
+  (abstract-state-constructor tr re (compute-astate-hash-code tr re)))
 
 (define init-astate
-  (make-abstract-state unknown-input avalue-bottom avalue-bottom
-                       initial-time-stamp))
+  (make-abstract-state avalue-bottom initial-time-stamp))
 
 ;; a LblClosureEnv is a [MutableHash LabelName ARegisterEnv]
