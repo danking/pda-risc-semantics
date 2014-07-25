@@ -34,7 +34,7 @@
 (define (get-callers ctxstate ctx)
   (hash-ref (ctx-state-callers ctxstate) ctx
             (lambda ()
-              (log-warning
+              (log-debug
                "WARNING: No callers found for context ~a in callers set:\n\n ~a\n\n"
                ctx
                (ctx-state-callers ctxstate))
@@ -82,7 +82,7 @@
   (match (pda-term-insn node)
     ((assign _ var (pop))
      (lambda (ctx sigma ctxstate configuration)
-       (log-info
+       (log-debug
         "In context, ~a\n  pop, ~a, is returning into these contexts:\n~a\n\n"
         ctx node (get-callers ctxstate ctx))
        (values (get-callers ctxstate ctx)
