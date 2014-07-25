@@ -1,10 +1,12 @@
 #lang racket
 
 (require "../lattice/lattice.rkt"
-         "abstract-value-data.rkt")
+         "abstract-value-data.rkt"
+         "../pda-to-pda-risc/risc-enhanced/fast-equal.rkt")
 (provide (struct-out context)
          context/c
          init-ctx
+         ctx-gte?
          )
 
 (define context-lattice
@@ -14,13 +16,21 @@
 
 (define avalue-gte? (lattice-gte? avalue-bounded-lattice))
 
+(define (ctx-gte? x y)
+  (let* ((cx (context-push x))
+         (cy (context-push y))
+         (fcx (false? cx))
+         (fcy (false? cy)))
+    (and (or (and fcx fcy)
+             (and (not fcx) (not fcy)
+                  (fast-term-equal? cx cy)))
+         (avalue-gte? (context-top-of-stack x) (context-top-of-stack y)))))
+
 ;; (context [Maybe PDA-TERM] AValue)
 (struct context (push top-of-stack)
         #:transparent
         #:methods gen:gen:join-semi-lattice
-        [(define (gte? x y)
-           (and (equal? (context-push x) (context-push y))
-                (avalue-gte? (context-top-of-stack x) (context-top-of-stack y))))
+        [(define gte? ctx-gte?)
          (define join (lattice-join context-lattice))]
         #:methods gen:gen:meet-semi-lattice
         [(define lte? (lattice-lte? context-lattice))

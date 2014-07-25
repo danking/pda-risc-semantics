@@ -11,6 +11,7 @@
          context-top-of-stack
          init-ctx
          initial-ctx-state
+         ctx-gte?
          )
 
 
