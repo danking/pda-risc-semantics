@@ -28,7 +28,7 @@
             (hash/c context/c (set/c context/c))
             (hash/c context/c (set/c (list/c any/c any/c)))))
 
-(define initial-ctx-state (ctx-state (make-hash) (make-hash)))
+(define (initial-ctx-state) (ctx-state (make-hash) (make-hash)))
 
 ;; get-callers : ContextState Context -> [SetOf Context]
 (define (get-callers ctxstate ctx)
@@ -101,10 +101,10 @@
 ;;             -> [Values [SetOf [List State Code]] ContextState Configuration]
 ;;
 (define (flow-across old-ctx new-ctxs ctxstate configuration)
-  (cond [(for/and ([new-ctx new-ctxs]) (equal? old-ctx new-ctxs))
+  (cond [(for/and ([new-ctx (in-set new-ctxs)]) (equal? old-ctx new-ctxs))
          (values (set) ctxstate configuration)]
         [else ;; new ctx being introduced
-         (values (for/mutable-set-union ([new-ctx new-ctxs])
+         (values (for/mutable-set-union ([new-ctx (in-set new-ctxs)])
                    (get-summaries ctxstate new-ctx))
                  ctxstate
                  configuration)]))

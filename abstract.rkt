@@ -56,7 +56,7 @@
         config
         (~> ((_ (env-set var (context-top-of-stack ctx)))
              (new-re environment-ts-get))
-          (for/set ([succ-term succ-terms])
+          (for/set ([succ-term (in-set succ-terms)])
             (list (make-abstract-state tr new-re)
                   succ-term)))))]
     [(assign _ var prhs)
@@ -64,14 +64,14 @@
       (~> ((value (eval-pure-rhs tr prhs))
            (_ (env-set var value))
            (new-re environment-ts-get))
-        (for/set ([succ-term succ-terms])
+        (for/set ([succ-term (in-set succ-terms)])
           (list (make-abstract-state tr new-re) succ-term))))]
     [(state-case _ var looks cnsqs)
      (flow-function
-      (~>~ ((succ-terms+looks (for/list~>~ ([succ-term succ-terms])
+      (~>~ ((succ-terms+looks (for/list~>~ ([succ-term (in-set succ-terms)])
                                 (~> ((lookahead (possible-lookahead looks cnsqs succ-term)))
                                   (list succ-term lookahead)))))
-        (for/set~>~ ([s+l succ-terms+looks])
+        (for/set~>~ ([s+l (in-list succ-terms+looks)])
           (~> ((_ (env-refine var (second s+l)))
                (new-re environment-ts-get))
             (list (make-abstract-state tr new-re) (first s+l))))))]
@@ -84,10 +84,10 @@
       (~> ((aval (value->avalue insn))
            (_ (env-set (first out-vars) aval))
            (new-re environment-ts-get))
-        (for/set ([succ-term succ-terms])
+        (for/set ([succ-term (in-set succ-terms)])
           (list (make-abstract-state tr new-re) succ-term))))]
     [(go _ go-target args)
-     (for ([succ-term succ-terms])
+     (for ([succ-term (in-set succ-terms)])
        (unless (join-point? (pda-term-insn succ-term))
          (error 'go
                 "this, ~a, go form is succeded by ~a instead of a join-point"
@@ -100,7 +100,7 @@
                 term go-target succ-term join-target)))
      (flow-function
       (~>~ ((values (mapM (curry eval-pure-rhs tr) args)))
-        (for/set~>~ ([succ-term succ-terms])
+        (for/set~>~ ([succ-term (in-set succ-terms)])
           (~> ((_ (env-set/list (join-point-params
                                  (pda-term-insn succ-term))
                                 values))
@@ -110,11 +110,11 @@
      ;; Here we update the token register to the predeceessors tr met with the
      ;; lookahead for this consequent, (tr ⊓ look-tr)
      (flow-function
-      (~> ((succ-terms+looks (for/list~>~ ([succ-term succ-terms])
+      (~> ((succ-terms+looks (for/list~>~ ([succ-term (in-set succ-terms)])
                                (~> ((lookahead (possible-lookahead looks cnsqs succ-term)))
                                  (list succ-term lookahead))))
            (new-re environment-ts-get))
-        (for/set ([s+l succ-terms+looks])
+        (for/set ([s+l (in-list succ-terms+looks)])
           (list (make-abstract-state (avalue-meet tr (second s+l)) new-re)
                 (first s+l)))))]
     [(push _ prhs)
@@ -124,22 +124,22 @@
      (flow-function
       (~> ((new-st (eval-pure-rhs tr prhs))
            (new-re environment-ts-get))
-        (for/set ([succ-term succ-terms])
+        (for/set ([succ-term (in-set succ-terms)])
           (list (make-abstract-state tr new-re) succ-term))))]
     [(drop-token _)
      (flow-function
       (~> ((new-re environment-ts-get))
-        (for/set ([succ-term succ-terms])
+        (for/set ([succ-term (in-set succ-terms)])
           (list (make-abstract-state tr new-re) succ-term))))]
     [(get-token _)
      (flow-function
       (~> ((new-re environment-ts-get))
-        (for/set ([succ-term succ-terms])
+        (for/set ([succ-term (in-set succ-terms)])
           (list (make-abstract-state avalue-top new-re) succ-term))))]
     [(if-eos _ cnsq altr)
      (flow-function
       (~> ((new-re environment-ts-get))
-        (for/set ([succ-term succ-terms])
+        (for/set ([succ-term (in-set succ-terms)])
           (list (make-abstract-state tr new-re) succ-term))))]
     [(reject _)
      (unless (set-empty? succ-terms)
@@ -149,7 +149,7 @@
     [_
      (flow-function
       (~> ((new-re environment-ts-get))
-        (for/set ([succ-term succ-terms])
+        (for/set ([succ-term (in-set succ-terms)])
           (list (make-abstract-state tr new-re) succ-term))))]])
 
 ;; possible-lookahead : [U [ListOf State] [ListOf Symbol]]
@@ -165,8 +165,8 @@
 ;; i.e. avalue-top.
 (define (possible-lookahead looks cnsqs i)
   (define lookahead
-    (for/first ([l looks]
-                [c cnsqs]
+    (for/first ([l (in-list looks)]
+                [c (in-list cnsqs)]
                 #:when (equal? (first c) i))
       (if l (value->avalue l) (return avalue-top))))
   (unless lookahead
