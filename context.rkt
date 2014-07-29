@@ -29,6 +29,10 @@
             (hash/c context/c (set/c (list/c any/c any/c)))))
 
 (define (initial-ctx-state) (ctx-state (make-hash) (make-hash)))
+(define-syntax-rule (relevant-set-constructor x ...) (mutable-set x ...))
+(define (relevant-set-add s x)
+  (set-add! s x)
+  s)
 
 ;; get-callers : ContextState Context -> [SetOf Context]
 (define (get-callers ctxstate ctx)
@@ -50,6 +54,12 @@
 (define (update-callers! ctxstate ctx updater default)
   (hash-update! (ctx-state-callers ctxstate) ctx updater default))
 
+(define (add-caller! ctxstate caller callee)
+  (update-callers! ctxstate
+                   callee
+                   (lambda (callers) (relevant-set-add callers caller))
+                   (relevant-set-constructor caller)))
+
 ;; get-summaries : ContextState Context -> [SetOf Code]
 ;;
 (define (get-summaries ctxstate ctx)
@@ -61,16 +71,13 @@
 ;;                    [SetOf [List State Code]]
 ;;
 (define (update-summaries! ctxstate ctx updater default)
-  (hash-update! (ctx-state-summaries ctxstate)
-                          ctx
-                          updater
-                          default))
+  (hash-update! (ctx-state-summaries ctxstate) ctx updater default))
 
 (define (add-summary! ctxstate ctx exit)
   (update-summaries! ctxstate
                      ctx
-                     (lambda (s) (set-add/lattice-join s exit))
-                     (set exit)))
+                     (lambda (s) (relevant-set-add s exit))
+                     (relevant-set-constructor exit)))
 
 ;; flow-ctx :  Code
 ;;          -> Context State ContextState Configuration
@@ -89,10 +96,7 @@
      (lambda (ctx sigma ctxstate configuration)
        (define-values (ctx* configuration*)
          (create-ctx node ctx sigma ctxstate configuration))
-       (update-callers! ctxstate
-                        ctx*
-                        (lambda (ctxs) (set-add ctxs ctx))
-                        (set ctx))
+       (add-caller! ctxstate ctx ctx*)
        (values (one ctx*) ctxstate configuration*)))
     (_ (lambda (ctx _ ctxstate configuration)
          (values (none) ctxstate configuration)))))
