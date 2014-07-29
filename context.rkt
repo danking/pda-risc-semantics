@@ -84,7 +84,7 @@
         "In context, ~a\n  pop, ~a, is returning into these contexts:\n~a\n\n"
         ctx node (get-callers ctxstate ctx))
        (add-summary! ctxstate ctx (list sigma node))
-       (values (get-callers ctxstate ctx) ctxstate configuration)))
+       (values (many (get-callers ctxstate ctx)) ctxstate configuration)))
     ((push _ prhs)
      (lambda (ctx sigma ctxstate configuration)
        (define-values (ctx* configuration*)
@@ -93,21 +93,26 @@
                         ctx*
                         (lambda (ctxs) (set-add ctxs ctx))
                         (set ctx))
-       (values (set ctx*) ctxstate configuration*)))
+       (values (one ctx*) ctxstate configuration*)))
     (_ (lambda (ctx _ ctxstate configuration)
-         (values (set ctx) ctxstate configuration)))))
+         (values (none) ctxstate configuration)))))
 
-;; flow-across :  Context [SetOf Context] ContextState Configuration
+;; flow-across :  Context NewCtx ContextState Configuration
 ;;             -> [Values [SetOf [List State Code]] ContextState Configuration]
 ;;
-(define (flow-across old-ctx new-ctxs ctxstate configuration)
-  (cond [(for/and ([new-ctx (in-set new-ctxs)]) (equal? old-ctx new-ctxs))
-         (values (set) ctxstate configuration)]
-        [else ;; new ctx being introduced
-         (values (for/mutable-set-union ([new-ctx (in-set new-ctxs)])
-                   (get-summaries ctxstate new-ctx))
-                 ctxstate
-                 configuration)]))
+(define (flow-across old-ctx new-ctx ctxstate configuration)
+  (match new-ctx
+    ;; a pop introduces many new contexts, but nothing flows across
+    [(struct many (ctxs))
+     (values (set) ctxstate configuration)]
+    ;; other insns introduce no new contexts and nothing flows across
+    [(struct none ())
+     (values (set) ctxstate configuration)]
+    ;; a push introduces one new context, but many things flow across
+    [(struct one (ctx))
+     (values (for/mutable-set ([item (get-summaries ctxstate ctx)]) (cons old-ctx item))
+             ctxstate
+             configuration)]))
 
 ;; create-ctx : Code Context State ContextState Configuration -> [Values Context Configuration]
 ;;
@@ -117,9 +122,9 @@
     (eval-pure-rhs/no-monad sigma prhs configuration))
   (values (context node stack-value) configuration*))
 
-(define-syntax-rule (for/mutable-set-union (iters ...) body ...)
+(define-syntax-rule (for/mutable-set (iters ...) body ...)
   (let ()
     (define result (mutable-set))
     (for (iters ...)
-      (set-union! result (begin body ...)))
+      (set-add! result (begin body ...)))
     result))

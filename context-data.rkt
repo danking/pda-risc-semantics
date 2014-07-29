@@ -7,6 +7,10 @@
          context/c
          init-ctx
          ctx-gte?
+         (struct-out many) many/c
+         (struct-out one) one/c
+         (struct-out none) none/c
+         new-context? new-context/c
          )
 
 (define context-lattice
@@ -40,3 +44,22 @@
 (define context/c (struct/c context any/c avalue/c))
 
 (define init-ctx (context #f avalue-top))
+
+;; A new-context is one of:
+;;   - [Many [SetOf Context]]
+;;   - [One Context]
+;;   - None
+;;
+;; many corresponds to a pop
+;; one corresponds to a push
+;; none corresponds to everything else
+(struct many (ctxs) #:transparent)
+(struct one (ctx) #:transparent)
+(struct none () #:transparent)
+(define (new-context? x) (or (many? x) (one? x) (none? x)))
+
+(define many/c (struct/c many (set/c context/c)))
+(define one/c (struct/c one context/c))
+(define none/c (struct/c none))
+
+(define new-context/c (or/c many/c one/c none/c))
