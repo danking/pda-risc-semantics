@@ -43,8 +43,8 @@
 ;; Code is [U Insn Insn*]
 
 ;; compute-flow-function :  Code
-;;                       -> Context AState
-;;                       -> [ConfigMonad [SetOf [List AState Code]]]
+;;                       -> Context NewCtx AState Configuration
+;;                       -> [Values [SetOf [List Context AState Code]] Configuration]
 (define (compute-flow-function term)
   (define succ-terms (pda-term-succs term))
   (define insn (pda-term-insn term))
