@@ -32,7 +32,7 @@
 (define (initial-ctx-state) (ctx-state (make-hash) (make-hash)))
 (define-syntax-rule (relevant-set-constructor x ...) (mutable-set x ...))
 (define (relevant-set-add s x)
-  (set-add! s x)
+  (set-add/lattice-join! s x)
   s)
 
 ;; get-callers : ContextState Context -> [SetOf Context]
