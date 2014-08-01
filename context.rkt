@@ -7,6 +7,7 @@
          racket/generic
          )
 (provide flow-ctx
+         flow-ctx-unit
          flow-across
          context-top-of-stack
          init-ctx
@@ -100,6 +101,10 @@
        (values (one ctx*) ctxstate configuration*)))
     (_ (lambda (ctx _ ctxstate configuration)
          (values (none) ctxstate configuration)))))
+
+(define flow-ctx-unit
+  (lambda (ctx sigma ctxstate configuration)
+    (values (none) ctxstate configuration)))
 
 ;; flow-across :  Context NewCtx ContextState Configuration
 ;;             -> [Values [SetOf [List State Code]] ContextState Configuration]
