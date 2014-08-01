@@ -13,6 +13,8 @@
          init-ctx
          initial-ctx-state
          ctx-gte?
+         ctx-state-callers&summaries-count
+         (all-from-out "context-data.rkt")
          )
 
 
@@ -34,6 +36,12 @@
 (define (relevant-set-add s x)
   (set-add/lattice-join! s x)
   s)
+
+(define (ctx-state-callers&summaries-count c)
+  (list (for/sum ([(callee callers) (in-hash (ctx-state-callers c))])
+          (set-count callers))
+        (for/sum ([(caller exits) (in-hash (ctx-state-summaries c))])
+          (set-count exits))))
 
 ;; get-callers : ContextState Context -> [SetOf Context]
 (define (get-callers ctxstate ctx)
