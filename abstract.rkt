@@ -72,13 +72,9 @@
           (list new-ctx (make-abstract-state tr new-re) succ-term))))]
     [(state-case _ var looks cnsqs)
      (flow-function
-      (~>~ ((succ-terms+looks (for/list~>~ ([succ-term (in-set succ-terms)])
-                                (~> ((lookahead (possible-lookahead looks cnsqs succ-term)))
-                                  (list succ-term lookahead)))))
-        (for/set~>~ ([s+l (in-list succ-terms+looks)])
-          (~> ((_ (env-refine var (second s+l)))
-               (new-re environment-ts-get))
-            (list new-ctx (make-abstract-state tr new-re) (first s+l))))))]
+      (~> ((new-re environment-ts-get))
+        (for/set ([succ-term (in-set succ-terms)])
+          (list new-ctx (make-abstract-state tr new-re) succ-term))))]
     [(sem-act _ name in-vars out-vars action)
      (when (not (= (length out-vars) 1))
        (warn 'sem-act
