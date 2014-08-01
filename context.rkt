@@ -81,7 +81,7 @@
 
 ;; flow-ctx :  Code
 ;;          -> Context State ContextState Configuration
-;;          -> [Values [SetOf Context] ContextState Configuration]
+;;          -> [Values NewCtx ContextState Configuration]
 ;;
 (define (flow-ctx node)
   (match (pda-term-insn node)
