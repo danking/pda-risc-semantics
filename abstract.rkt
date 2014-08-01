@@ -12,6 +12,7 @@
                      syntax/parse))
 
 (provide compute-flow-function
+         flow-function-unit
          init-astate
          abstract-state-gte?
          abstract-state-tr
@@ -155,6 +156,10 @@
       (~> ((new-re environment-ts-get))
         (for/set ([succ-term (in-set succ-terms)])
           (list new-ctx (make-abstract-state tr new-re) succ-term))))]])
+
+(define flow-function-unit
+  (lambda (ctx new-ctx sigma config)
+    (values (set) config)))
 
 ;; possible-lookahead : [U [ListOf State] [ListOf Symbol]]
 ;;                      [ListOf Term-Seq*]
